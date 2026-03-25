@@ -1,0 +1,38 @@
+# 环境变量 (敏感信息)
+.env
+.env.local
+*.env
+
+# Garmin 认证令牌
+tokens/
+
+# 缓存文件
+cache/
+*.json.bak
+
+# 日志文件
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
