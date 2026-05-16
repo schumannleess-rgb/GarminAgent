@@ -497,6 +497,7 @@ class Planner:
         system_content = build_plan_prompt(today)
 
         messages = [SystemMessage(content=system_content)]
+        injected_count = 0
         if history_messages:
             for msg in history_messages[-6:]:  # 从4条扩展到6条
                 content = msg.content if hasattr(msg, "content") else str(msg)
@@ -510,15 +511,20 @@ class Planner:
                         content += "..."
                 if isinstance(msg, HumanMessage):
                     messages.append(HumanMessage(content=content))
+                    injected_count += 1
                 else:
                     from langchain_core.messages import AIMessage
                     if isinstance(msg, AIMessage):
                         messages.append(AIMessage(content=content))
+                        injected_count += 1
+            logger.warning(f"[PLAN_HISTORY] injecting {injected_count} msgs from history (total={len(history_messages)}), user_msg_preview={user_message[:80]}")
         messages.append(HumanMessage(content=user_message))
 
         try:
             response = self.llm.invoke(messages)
             raw = response.content
+            raw_str = str(raw)
+            logger.warning(f"[PLAN_RAW] len={len(raw_str)} type={type(raw).__name__} preview={raw_str[:200]!r}")
 
             if isinstance(raw, list):
                 texts = [item.get("text", "") for item in raw if isinstance(item, dict) and item.get("type") == "text"]
@@ -532,6 +538,7 @@ class Planner:
             if json_match:
                 content = json_match.group(1)
 
+            logger.warning(f"[PLAN_JSON] extracted len={len(content)} preview={content[:200]!r}")
             plan_dict = json.loads(content.strip())
             logger.info(f"Plan: {plan_dict}")
 
