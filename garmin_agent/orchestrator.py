@@ -450,15 +450,22 @@ class Planner:
 
     def create_plan(self, user_message: str, history_messages: Optional[List[Any]] = None) -> Plan:
         """Generate a Plan from the user message."""
+        import re as _re
         today = date.today().strftime("%Y-%m-%d")
         system_content = build_plan_prompt(today)
 
         messages = [SystemMessage(content=system_content)]
         if history_messages:
-            for msg in history_messages[-4:]:
+            for msg in history_messages[-6:]:  # 从4条扩展到6条
                 content = msg.content if hasattr(msg, "content") else str(msg)
-                if len(content) > 500:
-                    content = content[:500] + "..."
+                if len(content) > 800:
+                    # 先提取 ID，截断后补回，确保上下文引用不丢失
+                    ids_found = _re.findall(r'\[ID:\d+\]', content)
+                    content = content[:700]
+                    if ids_found:
+                        content += "... [涉及活动: " + " ".join(ids_found) + "]"
+                    else:
+                        content += "..."
                 if isinstance(msg, HumanMessage):
                     messages.append(HumanMessage(content=content))
                 else:

@@ -275,8 +275,18 @@ class GarminAgent:
     # ==========================================
 
     def _create_plan(self, user_message: str, history_messages: list = None) -> Plan:
-        """Step 1: Generate execution plan from user message."""
-        return self.planner.create_plan(user_message, history_messages)
+        """Step 1: Generate execution plan, enriched with recent activity IDs from history."""
+        recent_ids = self._extract_ids_from_history(history_messages)
+        enriched_message = user_message
+        if recent_ids:
+            # 注入上下文，让 Planner 知道对话中出现过哪些活动 ID
+            enriched_message = (
+                f"{user_message}\n\n"
+                f"[上下文提示：本次对话中已出现的活动ID: {', '.join(recent_ids)}，"
+                f"如果用户说「刚才」「这些」「上面」等指代词，优先引用这些ID]"
+            )
+            logger.info(f"Enriched message with {len(recent_ids)} recent IDs: {recent_ids}")
+        return self.planner.create_plan(enriched_message, history_messages)
 
     def _execute_plan(self, plan: Plan) -> Dict[str, Any]:
         """Step 2: Execute the plan (tool call or code execution)."""
@@ -503,14 +513,64 @@ class GarminAgent:
         except Exception as e:
             logger.warning(f"Archive failed: {e}")
 
-    def _compress_history(self, session_id: str, max_messages: int = 20):
+    def _compress_history(self, session_id: str, max_messages: int = 20, keep_recent: int = 10):
+        """当历史超过 max_messages 条时，用 LLM 把早期消息压缩成摘要，保留最近 keep_recent 条原文。"""
         try:
             history = self._get_session_history(session_id)
             msgs = history.messages
-            if len(msgs) > max_messages:
+            if len(msgs) <= max_messages:
+                return  # 未超限，不处理
+
+            # 需要压缩的旧消息（除最近 keep_recent 条以外）
+            old_msgs = msgs[:-keep_recent]
+            recent_msgs = msgs[-keep_recent:]
+
+            # 把旧消息格式化成文本，让 LLM 做摘要
+            old_text_parts = []
+            for m in old_msgs:
+                role = "用户" if isinstance(m, HumanMessage) else "助手"
+                content = m.content if isinstance(m.content, str) else str(m.content)
+                old_text_parts.append(f"[{role}]: {content[:300]}")  # 每条只取前300字
+            old_text = "\n\n".join(old_text_parts)
+
+            summary_prompt = [
+                SystemMessage(content=(
+                    "你是对话摘要助手。请把以下 Garmin 训练助手的对话历史压缩成一段简洁的摘要。\n"
+                    "摘要必须保留：\n"
+                    "1. 用户查询过哪些活动（活动ID、日期、类型）\n"
+                    "2. 用户关注的指标（配速、心率、步频等）\n"
+                    "3. 助手给出的关键结论或建议\n"
+                    "4. 所有出现过的活动 ID（格式 [ID:xxxxx]），一个都不能丢\n"
+                    "摘要控制在200字以内，用中文输出。"
+                )),
+                HumanMessage(content=f"请压缩以下对话历史：\n\n{old_text}"),
+            ]
+
+            try:
+                summary_response = self.llm.invoke(summary_prompt)
+                summary_content = summary_response.content
+                if isinstance(summary_content, list):
+                    summary_content = "".join(
+                        item.get("text", "") for item in summary_content if isinstance(item, dict)
+                    )
+                summary_msg = AIMessage(
+                    content=f"[📋 早期对话摘要]\n{summary_content}"
+                )
+                logger.info(f"History compressed: {len(old_msgs)} msgs → 1 summary")
+            except Exception as e:
+                logger.warning(f"Summary generation failed, falling back to truncation: {e}")
+                # 摘要生成失败时降级为保留最近消息
                 history.clear()
-                for m in msgs[-max_messages:]:
+                for m in recent_msgs:
                     history.add_message(m)
+                return
+
+            # 用「摘要 + 最近N条」替换全部历史
+            history.clear()
+            history.add_message(summary_msg)
+            for m in recent_msgs:
+                history.add_message(m)
+
         except Exception as e:
             logger.warning(f"Compress failed: {e}")
 
