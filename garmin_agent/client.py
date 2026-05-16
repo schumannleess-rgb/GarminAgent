@@ -1,10 +1,7 @@
 """
 Garmin API Client Wrapper
 
-独立认证机制：
-1. 优先使用本地 TOKEN (./tokens/)
-2. 没有 TOKEN 时用账号密码登录
-3. 登录后存储 TOKEN 到本地，删除内存中的密码
+Uses login/garmin_login.py for authentication (is_cn=True, auto token persistence).
 """
 
 import os
@@ -15,17 +12,14 @@ from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
 
-# 本地 TOKEN 存储路径 (独立，不依赖外部)
-LOCAL_TOKENSTORE = Path(__file__).parent.parent / "tokens"
-
 
 class GarminClient:
     """
     Garmin API 客户端
 
-    认证优先级：
-    1. 本地 TOKEN (./tokens/)
-    2. 账号密码登录（首次）
+    认证方式：委托给 login/garmin_login.py
+    1. 优先恢复本地 TOKEN
+    2. 没有 TOKEN 时用账号密码登录
     """
 
     def __init__(self, email: str = None, password: str = None, tokenstore: str = None):
@@ -38,78 +32,35 @@ class GarminClient:
         """
         self.email = email or os.getenv("GARMIN_EMAIL")
         self.password = password or os.getenv("GARMIN_PASSWORD")
-        self.tokenstore = Path(tokenstore) if tokenstore else LOCAL_TOKENSTORE
+        self.tokenstore = tokenstore
         self._client = None
         self._authenticated = False
 
     def connect(self) -> bool:
         """连接 Garmin
 
-        优先级：
-        1. 本地 TOKEN
-        2. 账号密码登录
+        委托给 login/garmin_login.py，自动处理 token 恢复和密码登录。
 
         Returns:
             True if successful
         """
-        # 尝试 1: 使用本地 TOKEN
-        if self._try_stored_tokens():
-            logger.info(f"Using stored tokens from {self.tokenstore}")
-            return True
+        from login.garmin_login import garmin_login
 
-        # 尝试 2: 账号密码登录
-        if self.email and self.password:
-            return self._login_with_password()
-
-        logger.error("No valid authentication. Need email/password for first login.")
-        return False
-
-    def _try_stored_tokens(self) -> bool:
-        """尝试使用本地 TOKEN"""
         try:
-            if not self.tokenstore.exists():
-                logger.info(f"Token store not found: {self.tokenstore}")
-                return False
+            kwargs = {"is_cn": True}
+            if self.tokenstore:
+                kwargs["tokenstore"] = self.tokenstore
+            if self.email:
+                kwargs["email"] = self.email
+            if self.password:
+                kwargs["password"] = self.password
 
-            from garminconnect import Garmin
-
-            self._client = Garmin()
-            self._client.login(str(self.tokenstore))
-
-            # 验证 TOKEN 有效
-            self._client.get_full_name()
-
+            self._client = garmin_login(**kwargs)
             self._authenticated = True
+            logger.info("Connected to Garmin via login module")
             return True
-
         except Exception as e:
-            logger.warning(f"Stored tokens invalid: {e}")
-            return False
-
-    def _login_with_password(self) -> bool:
-        """使用账号密码登录，存储 TOKEN"""
-        try:
-            from garminconnect import Garmin
-
-            self._client = Garmin(self.email, self.password)
-            self._client.login()
-
-            # 确保 tokens 目录存在
-            self.tokenstore.mkdir(parents=True, exist_ok=True)
-
-            # 存储 TOKEN 到本地
-            self._client.dump_token(str(self.tokenstore))
-            logger.info(f"Tokens saved to {self.tokenstore}")
-
-            # 删除内存中的密码
-            del self.password
-            self.password = None
-
-            self._authenticated = True
-            return True
-
-        except Exception as e:
-            logger.error(f"Login failed: {e}")
+            logger.error(f"Connection failed: {e}")
             return False
 
     def _ensure_connected(self):

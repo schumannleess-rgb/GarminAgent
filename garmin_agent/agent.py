@@ -1,119 +1,204 @@
 """
-Garmin Agent - LangChain Agent Configuration
+Garmin Agent - Plan & Execute Orchestrator
 
-支持智谱 GLM API (Anthropic 兼容格式)
+结构性编排器：
+- 简单查询 → 直接调用预设工具（快速路径）
+- 复杂查询 → LLM 生成 Python 代码在受限沙箱中执行
+- 闲聊    → 直接回复
+
+核心流程：
+用户输入 → _create_plan() → _execute_plan() → _synthesize_response()
 """
 
 import os
-import logging
+import re
 import json
-from datetime import datetime
-from typing import Optional
+import logging
+from datetime import datetime, date, timedelta
+from typing import Optional, Dict, Any, List
 
 from langchain_anthropic import ChatAnthropic
-from langchain_community.chat_message_histories import ChatMessageHistory, FileChatMessageHistory
+from langchain_community.chat_message_histories import FileChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableLambda
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from pathlib import Path
 
 from .client import GarminClient
+from . import formatters
+from .orchestrator import Planner, SandboxExecutor, Plan, SYNTHESIS_PROMPT
 from .tools.activity_tools import (
     get_latest_activity,
     get_activities_by_date,
     get_activity_detail,
     search_activities,
-    search_by_training_type,  # 新增：按训练类型搜索
+    search_by_training_type,
     get_week_summary,
     set_client,
-    # 活动分析工具
     get_activity_splits,
     get_interval_analysis,
-    get_hill_score,
-    get_activity_split_summaries,
-    get_activity_details,
-    get_activity_power_zones,
-    get_activity_exercise_sets,
-    # 日期活动工具
+    get_daily_health_summary,
+    get_training_capacity,
     get_activities_fordate,
-    # 合并工具（减少工具数量，提高稳定性）
-    get_daily_health_summary,  # 睡眠+HRV+训练准备度
-    get_training_capacity,      # 训练状态+健身年龄+耐力+比赛预测+乳酸阈值
-    # 心率工具
     get_heart_rate_data,
     get_resting_heart_rate,
     get_activity_hr_zones,
-    # 训练分类工具
     classify_activity_type,
+    get_sleep_data,
+    get_hrv_data,
+    get_training_status,
+    compare_interval_trainings,
+    evaluate_lap_quality,
+    get_hr_zone_distribution,
+    filter_laps_by_pace,
 )
 
 logger = logging.getLogger(__name__)
 
-# System prompt - 精简版，5个核心工具
-SYSTEM_PROMPT = """你是 Garmin 训练助手，一个专业、亲切又活泼的跑步教练！🏃
+# Tool registry
+TOOL_REGISTRY = {
+    "get_latest_activity": get_latest_activity,
+    "get_activities_by_date": get_activities_by_date,
+    "get_activity_detail": get_activity_detail,
+    "search_activities": search_activities,
+    "search_by_training_type": search_by_training_type,
+    "get_week_summary": get_week_summary,
+    "get_activity_splits": get_activity_splits,
+    "get_interval_analysis": get_interval_analysis,
+    "get_daily_health_summary": get_daily_health_summary,
+    "get_training_capacity": get_training_capacity,
+    "get_activities_fordate": get_activities_fordate,
+    "get_heart_rate_data": get_heart_rate_data,
+    "get_resting_heart_rate": get_resting_heart_rate,
+    "get_activity_hr_zones": get_activity_hr_zones,
+    "classify_activity_type": classify_activity_type,
+    "get_sleep_data": get_sleep_data,
+    "get_hrv_data": get_hrv_data,
+    "get_training_status": get_training_status,
+    "compare_interval_trainings": compare_interval_trainings,
+    "evaluate_lap_quality": evaluate_lap_quality,
+    "get_hr_zone_distribution": get_hr_zone_distribution,
+    "filter_laps_by_pace": filter_laps_by_pace,
+}
 
-## ⚠️ 必须遵守
 
-1. **每次回答前必须调用工具** - 你没有任何用户数据，必须先查
-2. **禁止编造数字** - 所有数据来自工具返回
-3. **先查后说** - 工具返回数据后再分析
+def _infer_date(text: str, today: date = None) -> str:
+    """把自然语言日期转成 YYYY-MM-DD。推不出来就返回今天。"""
+    if today is None:
+        today = date.today()
 
-## 可用工具（5个）
+    text = text.strip()
 
-**search_activities** - 搜索跑步活动
-- 触发：用户提到任何活动时
+    # 直接是 YYYY-MM-DD
+    if re.match(r'\d{4}-\d{2}-\d{2}', text):
+        return text
 
-**search_by_training_type** - 按训练类型搜索
-- 触发：用户问"间歇跑"、"节奏跑"、"轻松跑"、"长距离"等
-- 支持类型：interval(间歇), tempo(节奏), easy(轻松), long_run(长距离), race(比赛)
+    # X月X日 / X月X号
+    m = re.search(r'(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]', text)
+    if m:
+        month, day = int(m.group(1)), int(m.group(2))
+        year = today.year
+        try:
+            d = date(year, month, day)
+            if d > today:
+                d = date(year - 1, month, day)
+            return d.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
 
-**get_activity_detail** - 活动详情分析
-- 触发：分析具体活动（需先获取activityId）
+    # X天前 / 前天 / 昨天
+    if "前天" in text:
+        return (today - timedelta(days=2)).strftime("%Y-%m-%d")
+    if "昨天" in text:
+        return (today - timedelta(days=1)).strftime("%Y-%m-%d")
+    if "今天" in text:
+        return today.strftime("%Y-%m-%d")
+    m = re.search(r'(\d+)\s*天前', text)
+    if m:
+        return (today - timedelta(days=int(m.group(1)))).strftime("%Y-%m-%d")
 
-**get_daily_health_summary** - 每日健康摘要
-- 触发：问"今天状态"、"睡眠怎么样"
+    # 上周 / 本周
+    if "上周" in text:
+        last_monday = today - timedelta(days=today.weekday() + 7)
+        last_sunday = last_monday + timedelta(days=6)
+        return f"{last_monday.strftime('%Y-%m-%d')},{last_sunday.strftime('%Y-%m-%d')}"
+    if "本周" in text or "这周" in text:
+        monday = today - timedelta(days=today.weekday())
+        return f"{monday.strftime('%Y-%m-%d')},{today.strftime('%Y-%m-%d')}"
 
-**get_training_capacity** - 训练能力概览
-- 触发：问"体能水平"、"能跑多快"
+    # 上个月
+    if "上月" in text or "上个月" in text:
+        first_this_month = today.replace(day=1)
+        last_month_end = first_this_month - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        return f"{last_month_start.strftime('%Y-%m-%d')},{last_month_end.strftime('%Y-%m-%d')}"
 
-## 回复格式（严格遵守！）
+    # 本月 / 这个月
+    if "本月" in text or "这个月" in text:
+        first_this_month = today.replace(day=1)
+        return f"{first_this_month.strftime('%Y-%m-%d')},{today.strftime('%Y-%m-%d')}"
 
-```
-📊 **[标题]**
+    return today.strftime("%Y-%m-%d")
 
-[1-2句话概括]
 
-📌 关键数据：
-• 数据项1：xxx
-• 数据项2：xxx
+def _infer_date_range(text: str, today: date = None) -> tuple:
+    """返回 (start_date, end_date) 字符串元组。"""
+    if today is None:
+        today = date.today()
 
-💡 建议：
-[专业建议，1-3条]
-```
+    result = _infer_date(text, today)
+
+    # 如果返回的是范围（包含逗号）
+    if "," in result:
+        parts = result.split(",")
+        return parts[0], parts[1]
+
+    return result, result
+
+
+# Legacy prompts (kept for reference, not used in new flow)
+FORMAT_PROMPT = """你是 Garmin 训练助手，一个专业、主动的跑步教练。
+
+## 数据来源标注（必须遵守！）
+
+在回复开头标注数据来源：
+- 如果数据来自 Garmin 真实 API → 在标题后加 "📡 数据来自 Garmin"
+- 如果数据是模拟/缓存 → 加 "📦 数据来自缓存"
 
 ## 回复风格
 
-- 🏃 用教练语气，专业但亲切
-- 😊 适当使用 emoji 让回复更生动
-- 📏 距离用 km，配速用 分:秒/km
-- ✨ 先概括亮点，再分析，最后给建议
-"""
+- 🔥 **主动**：直接给结论和建议，不要问用户"你想了解什么"
+- 🏃 **专业**：用教练语气，专业但亲切
+- 📏 **精确**：距离 km，配速 分:秒/km，心率 bpm
+- 💡 **有用**：每次回复必须包含具体的下一步建议
 
-# Available tools - 5个核心工具
-TOOLS = [
-    search_activities,           # 按关键词查询活动
-    search_by_training_type,     # 按训练类型搜索（间歇/节奏/轻松/长距离）
-    get_activity_detail,         # 活动详情分析
-    get_daily_health_summary,    # 每日健康摘要
-    get_training_capacity,       # 训练能力概览
-]
+## 回复格式
+
+📊 **[标题]** 📡 数据来自 Garmin
+
+[1-2句话直接给结论]
+
+📌 关键数据：
+• 数据项：数值
+• 数据项：数值
+
+💡 建议：
+[1-3条具体可执行的建议，比如"建议明天做一次轻松跑恢复"而不是"可以考虑适当休息"]
+
+🔥 你可以试试：
+[主动推荐1-2个相关的后续查询，比如"想看分段配速？直接说'分段数据'" ]
+
+## 绝对禁止
+- 不要问用户"你想了解什么"、"需要我帮你查什么"
+- 不要问用户要 activity_id，自己去查
+- 不要编造数据，只用工具返回的真实数据
+- 不要说"如果您有其他问题"之类的客套话
+- **不要删除活动 ID**：工具返回的 [ID:xxxxx] 必须保留在回复中，用户需要它来查看详细数据
+"""
 
 
 class GarminAgent:
-    """Garmin Training Assistant Agent"""
+    """Garmin Training Assistant Agent (Plan & Execute Orchestrator)"""
 
     def __init__(
         self,
@@ -123,16 +208,6 @@ class GarminAgent:
         garmin_email: str = None,
         garmin_password: str = None,
     ):
-        """Initialize the agent
-
-        Args:
-            api_key: API key (默认从 ZHIPU_API_KEY 环境变量读取)
-            base_url: API base URL (默认从 ZHIPU_BASE_URL 环境变量读取)
-            model: LLM model (默认从 ZHIPU_MODEL 环境变量读取)
-            garmin_email: Garmin email
-            garmin_password: Garmin password
-        """
-        # 智谱 GLM 配置
         self.api_key = api_key or os.getenv("ZHIPU_API_KEY")
         self.base_url = base_url or os.getenv("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/anthropic")
         self.model = model or os.getenv("ZHIPU_MODEL", "glm-4.7")
@@ -140,257 +215,343 @@ class GarminAgent:
         if not self.api_key:
             raise ValueError("需要 API Key。请设置 ZHIPU_API_KEY 环境变量。")
 
-        # Setup Garmin client
-        self.client = GarminClient(
-            email=garmin_email,
-            password=garmin_password
-        )
+        self.client = GarminClient(email=garmin_email, password=garmin_password)
 
-        # Memory storage directory (persistent)
         self._memory_dir = Path(__file__).parent.parent / "memory"
         self._memory_dir.mkdir(exist_ok=True)
-
-        # Chat logs directory (persistent archive)
         self._logs_dir = Path(__file__).parent.parent / "logs"
         self._logs_dir.mkdir(exist_ok=True)
 
-        # Create LLM (使用智谱 API，Anthropic 兼容格式)
+        # 计划生成用低温（确定性决策）
         self.llm = ChatAnthropic(
-            model=self.model,
-            temperature=0.7,
-            api_key=self.api_key,
-            base_url=self.base_url,
+            model=self.model, temperature=0.2,
+            api_key=self.api_key, base_url=self.base_url, max_tokens=2048,
+        )
+        # 回复格式化用高温（创造性表达），token 上限提高以支持多活动明细输出
+        self.format_llm = ChatAnthropic(
+            model=self.model, temperature=0.7,
+            api_key=self.api_key, base_url=self.base_url, max_tokens=4096,
         )
 
-        # Create prompt
-        # 注意：chat_history 由 RunnableWithMessageHistory 自动注入
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_PROMPT),
-            MessagesPlaceholder(variable_name="chat_history"),  # 历史对话（自动管理）
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),  # Agent 思考过程
-        ])
+        # 编排器组件
+        self.planner = Planner(self.llm)
+        self.sandbox = None  # 在 connect() 后初始化，需要 client
 
-        # Agent components (initialized after connect)
-        self._agent = None
-        self._agent_executor = None
-        self._agent_with_history = None
+        self._connected = False
 
     def get_welcome_message(self) -> str:
-        """获取欢迎消息和功能菜单"""
-        return """🏃 欢迎使用 Garmin 训练助手！
+        return """嘿！我是你的 Garmin 训练教练 🏃
 
-请选择您想了解的内容（输入数字或直接提问）：
+我能帮你做这些：
 
-1️⃣  活动查询 - 查找跑步记录（如"上次跑步"、"这周跑量"）
-2️⃣  活动详情 - 分析某次训练的详细数据
-3️⃣  每日健康 - 睡眠、HRV、训练准备度
-4️⃣  训练能力 - 体能状态、比赛预测、乳酸阈值
-5️⃣  训练类型 - 按类型查找（如"间歇跑"、"节奏跑"、"长距离跑")
+  🏃 训练记录    "最近跑了什么" / "这周跑量" / "昨天的活动"
+  📊 活动分析    "上次跑步的配速" / "分段数据" / "心率区间"
+  🏋️ 训练类型    "找间歇跑" / "节奏跑" / "长距离跑"
+  💪 体能评估    "体能水平" / "比赛预测" / "乳酸阈值"
+  😴 健康状态    "今天状态" / "睡眠怎么样" / "静息心率"
 
-💡 也可以直接问问题，例如：
-   • "最近跑得怎么样"
-   • "今天状态如何"
-   • "我的体能水平"
-   • "最近5次间歇跑"
-"""
+直接说就行，不用记命令！"""
 
     def connect(self) -> bool:
-        """Connect to Garmin
-
-        Returns:
-            True if successful
-        """
         try:
             if not self.client.connect():
-                logger.error("Failed to connect to Garmin")
                 return False
         except Exception as e:
             logger.error(f"Connection error: {e}")
             return False
 
-        # Set client for tools
         set_client(self.client)
-
-        # Create agent
-        self._agent = create_tool_calling_agent(self.llm, TOOLS, self.prompt)
-        self._agent_executor = AgentExecutor(
-            agent=self._agent,
-            tools=TOOLS,
-            verbose=False,  # 关闭终端输出
-            handle_parsing_errors=True,
-            return_intermediate_steps=True  # 返回中间步骤用于存档
-        )
-
-        # Output converter: fix ChatAnthropic list content format for Memory compatibility
-        # AND validate tool calls to prevent hallucination
-        def convert_output(response: dict) -> dict:
-            """Convert AIMessage content from list to string for Memory compatibility
-            AND validate that tools were called (prevent hallucination)"""
-            output = response.get("output")
-            steps = response.get("intermediate_steps", [])
-
-            # Check if any tools were called
-            if not steps:
-                # No tools called - this is likely a hallucination!
-                # Return a warning message instead
-                response["output"] = "⚠️ 我需要先查询数据才能回答。请稍等...\n\n（系统检测：未调用数据查询工具）"
-                response["_no_tool_call"] = True
-                logger.warning("Agent returned response without calling any tools - potential hallucination blocked")
-                return response
-
-            if isinstance(output, list):
-                # Extract text from list format [{"text": "...", "type": "text"}]
-                texts = []
-                for item in output:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        texts.append(item.get("text", ""))
-                response["output"] = "".join(texts)
-            return response
-
-        # Wrap agent_executor with output converter
-        agent_with_converter = self._agent_executor | RunnableLambda(convert_output)
-
-        # Wrap with message history
-        self._agent_with_history = RunnableWithMessageHistory(
-            agent_with_converter,
-            self._get_session_history,
-            input_messages_key="input",
-            history_messages_key="chat_history",
-        )
-
-        logger.info("Agent initialized successfully")
+        self.sandbox = SandboxExecutor(self.client, formatters)
+        self._connected = True
+        logger.info("Agent initialized (plan & execute orchestrator)")
         return True
 
     def _get_session_history(self, session_id: str) -> BaseChatMessageHistory:
-        """Get or create session history (persistent file storage)"""
         session_file = self._memory_dir / f"{session_id}.json"
         return FileChatMessageHistory(str(session_file))
 
-    def _compress_history(self, session_id: str = "default", max_messages: int = 20):
-        """Compress chat history by keeping only recent messages
+    # ==========================================
+    # Core Orchestration: Plan → Execute → Synthesize
+    # ==========================================
 
-        Args:
-            session_id: Session ID
-            max_messages: Maximum number of messages to keep (default 20, ~10 turns)
-        """
+    def _create_plan(self, user_message: str, history_messages: list = None) -> Plan:
+        """Step 1: Generate execution plan from user message."""
+        return self.planner.create_plan(user_message, history_messages)
+
+    def _execute_plan(self, plan: Plan) -> Dict[str, Any]:
+        """Step 2: Execute the plan (tool call or code execution)."""
+        if plan.mode == "direct":
+            return {"type": "direct", "content": plan.reply or "嘿！直接问我关于跑步的问题就行 🏃"}
+
+        if plan.mode == "tool":
+            params = self._resolve_dates(plan.params or {})
+            tool_name = plan.tool_name or "get_latest_activity"
+            result = self._execute_tool(tool_name, params)
+            return {
+                "type": "tool",
+                "tool_name": tool_name,
+                "content": result,
+            }
+
+        if plan.mode == "code":
+            if self.sandbox is None:
+                return {
+                    "type": "code",
+                    "stdout": "",
+                    "result": None,
+                    "error": "沙箱未初始化，请先调用 connect()",
+                    "code": plan.code,
+                }
+            exec_result = self.sandbox.execute(plan.code, timeout=30)
+            return {
+                "type": "code",
+                "stdout": exec_result["stdout"],
+                "result": exec_result["result"],
+                "error": exec_result["error"],
+                "code": plan.code,
+            }
+
+        # Unknown mode fallback
+        return {"type": "error", "content": f"Unknown plan mode: {plan.mode}"}
+
+    def _synthesize_response(self, user_message: str, execution_result: Dict[str, Any]) -> str:
+        """Step 3: Generate final natural language response from execution results."""
+        # Build the context for the format LLM
+        if execution_result.get("type") == "direct":
+            return execution_result["content"]
+
+        if execution_result.get("type") == "error":
+            return f"抱歉，执行出错了: {execution_result.get('content', '未知错误')}"
+
+        # Build result description
+        result_parts = []
+
+        if execution_result.get("type") == "tool":
+            result_parts.append(f"【工具: {execution_result.get('tool_name')}】")
+            result_parts.append(str(execution_result.get("content", "")))
+
+        elif execution_result.get("type") == "code":
+            if execution_result.get("error"):
+                result_parts.append(f"⚠️ 代码执行出错:\n{execution_result['error']}")
+            if execution_result.get("stdout"):
+                result_parts.append(f"📤 输出:\n{execution_result['stdout']}")
+            if execution_result.get("result") is not None:
+                try:
+                    result_json = json.dumps(execution_result["result"], ensure_ascii=False, indent=2, default=str)
+                    result_parts.append(f"📦 结果 (JSON):\n{result_json}")
+                except Exception:
+                    result_parts.append(f"📦 结果:\n{str(execution_result['result'])}")
+            if not result_parts:
+                result_parts.append("代码执行完成，但没有输出和结果。")
+
+        tool_result = "\n\n".join(result_parts)
+
+        messages = [
+            SystemMessage(content=SYNTHESIS_PROMPT),
+            HumanMessage(content=f"""用户问：{user_message}
+
+执行结果：
+{tool_result}
+
+⚠️ 重要输出要求：
+- 必须输出每一个活动的明细，不能只给总结
+- 每个活动的每一个符合条件的圈数必须单独列出（圈号、配速、心率、步频、步幅、垂直振幅）
+- 不符合条件的圈也要给出概况汇总
+- 最后再做整体汇总
+- 数据量大时用表格格式
+- 绝对禁止用「共有X个慢圈，平均配速Y」代替逐圈列表
+
+生成回复："""),
+        ]
         try:
-            history = self._get_session_history(session_id)
-            messages = history.messages
-
-            if len(messages) > max_messages:
-                # Keep only the most recent messages
-                kept_messages = messages[-max_messages:]
-
-                # Clear and rebuild history
-                history.clear()
-                for msg in kept_messages:
-                    history.add_message(msg)
-
-                logger.info(f"Compressed history from {len(messages)} to {max_messages} messages")
-                return True
-            return False
+            response = self.format_llm.invoke(messages)
+            content = response.content
+            if isinstance(content, list):
+                texts = [item.get("text", "") if isinstance(item, dict) else str(item) for item in content]
+                content = "".join(texts)
+            return content
         except Exception as e:
-            logger.warning(f"Failed to compress history: {e}")
-            return False
+            logger.error(f"Synthesis error: {e}")
+            return tool_result
 
-    def _archive_chat(self, user_msg: str, assistant_msg: str, session_id: str = "default", steps: list = None):
-        """Archive chat to log file (for debugging and review)
+    # ==========================================
+    # Legacy helpers (kept for tool-mode and internal use)
+    # ==========================================
 
-        Args:
-            user_msg: User message
-            assistant_msg: Assistant response
-            session_id: Session ID
-            steps: Agent intermediate steps (tool calls)
-        """
+    def _resolve_dates(self, params: Dict) -> Dict:
+        """把自然语言日期转成 YYYY-MM-DD"""
+        today = date.today()
+        for key in ["start_date", "end_date", "date_str"]:
+            if key in params and isinstance(params[key], str):
+                val = params[key]
+                if not re.match(r'\d{4}-\d{2}-\d{2}', val):
+                    if key in ("start_date", "end_date"):
+                        start, end = _infer_date_range(val, today)
+                        params["start_date"] = start
+                        params["end_date"] = end
+                    else:
+                        params[key] = _infer_date(val, today)
+        return params
+
+    def _execute_tool(self, tool_name: str, params: Dict) -> str:
+        if tool_name not in TOOL_REGISTRY:
+            return f"未知工具: {tool_name}"
+
+        tool = TOOL_REGISTRY[tool_name]
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            for key in ["limit", "weeks"]:
+                if key in params and isinstance(params[key], str):
+                    try:
+                        params[key] = int(params[key])
+                    except ValueError:
+                        pass
 
-            # Format intermediate steps for readability
-            formatted_steps = []
-            if steps:
-                for step in steps:
-                    action, observation = step
-                    formatted_steps.append({
-                        "tool": action.tool,
-                        "input": action.tool_input,
-                        "output": observation[:500] + "..." if len(str(observation)) > 500 else observation
-                    })
+            if "activity_id" in params and isinstance(params["activity_id"], str) and "," in str(params["activity_id"]):
+                ids = [x.strip() for x in str(params["activity_id"]).split(",") if x.strip()]
+                results = []
+                for aid in ids:
+                    try:
+                        r = tool.invoke({"activity_id": int(aid)})
+                        results.append(r)
+                    except Exception as e:
+                        results.append(f"活动 {aid}: {e}")
+                return "\n\n---\n\n".join(results)
 
-            log_entry = {
-                "timestamp": timestamp,
+            if "activity_id" in params and isinstance(params["activity_id"], str):
+                try:
+                    params["activity_id"] = int(params["activity_id"])
+                except ValueError:
+                    pass
+
+            result = tool.invoke(params) if params else tool.invoke({})
+            logger.info(f"Tool {tool_name}: {len(str(result))} chars")
+            return str(result)
+        except Exception as e:
+            logger.error(f"Tool {tool_name} error: {e}")
+            return f"工具调用失败: {e}"
+
+    def _extract_ids_from_history(self, history_messages: list = None) -> List[str]:
+        """从对话历史中提取所有活动 ID"""
+        if not history_messages:
+            return []
+        ids = []
+        for msg in history_messages[-6:]:
+            content = msg.content if isinstance(msg.content, str) else str(msg.content)
+            ids.extend(re.findall(r'\[ID:(\d+)\]', content))
+            ids.extend(re.findall(r'ID:\s*(\d{6,})', content))
+        seen = set()
+        unique = []
+        for i in ids:
+            if i not in seen:
+                seen.add(i)
+                unique.append(i)
+        return unique
+
+    def _fallback_intent(self, user_message: str, history_messages: list = None) -> Dict[str, Any]:
+        """Legacy fallback for intent parsing."""
+        msg = user_message.lower()
+
+        if any(kw in msg for kw in ["这些", "刚才", "上面的", "全部", "都"]):
+            ids = self._extract_ids_from_history(history_messages)
+            if ids:
+                return {"tool": "get_activity_detail", "params": {"activity_id": ",".join(ids)}}
+
+        type_map = {
+            "间歇": "interval", "interval": "interval",
+            "节奏": "tempo", "tempo": "tempo",
+            "轻松": "easy", "easy": "easy",
+            "长距离": "long_run", "长跑": "long_run", "lsd": "long_run",
+            "比赛": "race", "race": "race",
+            "乳酸阈值": "lactate_threshold",
+            "越野": "trail",
+        }
+
+        for kw, tt in type_map.items():
+            if kw in msg:
+                params = {"training_type": tt}
+                m = re.search(r'(\d+)\s*(?:次|个)', msg)
+                if m:
+                    params["limit"] = int(m.group(1))
+                return {"tool": "search_by_training_type", "params": params}
+
+        if any(kw in msg for kw in ["状态", "睡眠", "hrv", "恢复"]):
+            return {"tool": "get_daily_health_summary", "params": {}}
+        if any(kw in msg for kw in ["体能", "vo2", "耐力", "能跑", "比赛预测"]):
+            return {"tool": "get_training_capacity", "params": {}}
+        if any(kw in msg for kw in ["这周", "本周", "周跑量"]):
+            return {"tool": "get_week_summary", "params": {"weeks": 1}}
+        if "心率" in msg:
+            return {"tool": "get_heart_rate_data", "params": {}}
+        if "静息" in msg:
+            return {"tool": "get_resting_heart_rate", "params": {}}
+
+        return {"tool": "get_latest_activity", "params": {}}
+
+    def _archive_chat(self, user_msg: str, assistant_msg: str, session_id: str, tool_name: str, tool_result: str):
+        try:
+            log_file = self._logs_dir / f"chat_{datetime.now().strftime('%Y-%m-%d')}.jsonl"
+            entry = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": session_id,
                 "user": user_msg,
                 "assistant": assistant_msg,
-                "steps": formatted_steps  # 处理过程信息
+                "tool": tool_name,
+                "tool_result_preview": tool_result[:500] if tool_result else "",
             }
-
-            # Daily log file
-            log_file = self._logs_dir / f"chat_{datetime.now().strftime('%Y-%m-%d')}.jsonl"
-
-            # Append as JSONL (one JSON per line)
             with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-
-            logger.debug(f"Archived chat to {log_file}")
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception as e:
-            logger.warning(f"Failed to archive chat: {e}")
+            logger.warning(f"Archive failed: {e}")
+
+    def _compress_history(self, session_id: str, max_messages: int = 20):
+        try:
+            history = self._get_session_history(session_id)
+            msgs = history.messages
+            if len(msgs) > max_messages:
+                history.clear()
+                for m in msgs[-max_messages:]:
+                    history.add_message(m)
+        except Exception as e:
+            logger.warning(f"Compress failed: {e}")
+
+    # ==========================================
+    # Main Chat Entry
+    # ==========================================
 
     def chat(self, message: str, session_id: str = "default") -> str:
-        """Send a message to the agent
-
-        Args:
-            message: User message
-            session_id: Session ID for memory
-
-        Returns:
-            Agent response
-        """
-        if self._agent_with_history is None:
+        if not self._connected:
             raise RuntimeError("Agent not initialized. Call connect() first.")
 
         try:
-            # Use the pre-configured agent_with_history (includes convert_output validation)
-            response = self._agent_with_history.invoke(
-                {"input": message},
-                config={"configurable": {"session_id": session_id}}
-            )
-            output = response.get("output", "")
+            # 1. 获取对话历史
+            history = self._get_session_history(session_id)
 
-            # Get intermediate_steps for logging (may not be present after RunnableWithMessageHistory)
-            steps = response.get("intermediate_steps") or []
+            # 2. 生成执行计划
+            plan = self._create_plan(message, history.messages)
+            logger.info(f"Plan: mode={plan.mode}, tool={plan.tool_name}, reasoning={plan.reasoning[:80]}")
 
-            # Check if response was blocked due to no tool calls
-            if response.get("_no_tool_call"):
-                logger.warning(f"Response blocked - no tool calls for: {message[:50]}...")
-                self._archive_chat(message, output, session_id, [])
-                return output
+            # 3. 执行计划
+            execution_result = self._execute_plan(plan)
 
-            # Handle encoding issues
-            if isinstance(output, str):
-                output = output.encode("utf-8", errors="replace").decode("utf-8")
+            # 4. 生成回复
+            response = self._synthesize_response(message, execution_result)
 
-            # Archive chat for debugging/review
-            self._archive_chat(message, output, session_id, steps)
+            # 5. 存档
+            history.add_message(HumanMessage(content=message))
+            history.add_message(AIMessage(content=response))
+            tool_name = plan.tool_name or ("code" if plan.mode == "code" else plan.mode)
+            tool_result = json.dumps(execution_result, ensure_ascii=False, default=str)[:500]
+            self._archive_chat(message, response, session_id, tool_name, tool_result)
+            self._compress_history(session_id)
 
-            # Compress history if too long (keep last 20 messages = ~10 turns)
-            self._compress_history(session_id, max_messages=20)
+            return response
 
-            return output
         except Exception as e:
-            logger.error(f"Error in chat: {e}")
-            return f"抱歉，处理消息时出错: {str(e)}"
-
-    def _update_history(self, session_id: str, user_msg: str, assistant_msg: str):
-        """Update message history manually"""
-        from langchain_core.messages import HumanMessage, AIMessage
-        history = self._get_session_history(session_id)
-        history.add_message(HumanMessage(content=user_msg))
-        history.add_message(AIMessage(content=assistant_msg))
+            logger.error(f"Chat error: {e}")
+            return f"抱歉，出错了: {e}"
 
     def clear_memory(self, session_id: str = "default"):
-        """Clear conversation memory for a session"""
         session_file = self._memory_dir / f"{session_id}.json"
         if session_file.exists():
             session_file.unlink()
-            logger.info(f"Cleared memory for session: {session_id}")
+            logger.info(f"Cleared memory: {session_id}")

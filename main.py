@@ -42,7 +42,7 @@ def print_banner():
     """Print welcome banner"""
     print("""
 ╔══════════════════════════════════════════════════════════╗
-║        🏃 Garmin 训练助手 v0.3.0 (5 Core Tools)          ║
+║       🏃 Garmin 训练助手 v0.4.0 (Manual Dispatch)       ║
 ╚══════════════════════════════════════════════════════════╝
 """)
 
@@ -100,11 +100,11 @@ def main():
         logger.exception("Init error")
         return 1
 
-    # Show welcome menu
+    # Show welcome
     print(agent.get_welcome_message())
 
     # Chat loop
-    print("💬 开始对话 (输入 quit 退出, clear 清除记忆):\n")
+    print("\n(输入 quit 退出, clear 清除记忆)\n")
 
     while True:
         try:
@@ -122,20 +122,8 @@ def main():
                 print("🧹 记忆已清除\n")
                 continue
 
-            # 处理数字快捷输入
-            shortcut_map = {
-                "1": "查询最近的跑步活动",
-                "2": "分析最近一次跑步的详细数据",
-                "3": "今天的健康状态怎么样，包括睡眠、HRV和训练准备度",
-                "4": "我的训练能力和体能水平如何",
-                "5": "找最近5次间歇跑",
-            }
-            if user_input in shortcut_map:
-                user_input = shortcut_map[user_input]
-                print(f"→ {user_input}")
-
             # Get response
-            print("\n助手: ", end="", flush=True)
+            print()
             response = agent.chat(user_input)
             print(response)
             print()

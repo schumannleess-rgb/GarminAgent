@@ -136,12 +136,13 @@ def get_activities_by_date(start_date: str, end_date: str) -> str:
 
 活动列表:"""
 
-    # 返回所有活动记录，不截断
+    # 返回所有活动记录，带 ID
     for a in activities:
         dist = formatters.format_distance(a.get("distance", 0) or 0)
         name = a.get("activityName", "未命名")
         d = a.get("startTimeLocal", "")[:10]
-        result += f"\n- {d}: {name} ({dist})"
+        aid = a.get("activityId", "")
+        result += f"\n- {d}: {name} ({dist}) [ID:{aid}]"
 
     return result
 
@@ -351,35 +352,39 @@ def get_activity_detail(activity_id: int = None) -> str:
 
 @tool
 def get_activity_splits(activity_id: int) -> str:
-    """获取活动的分段数据（每公里配速、心率变化等）。
+    """获取活动的分段数据（每公里配速、心率、步频、步幅、垂直振幅等）。
 
-    当用户问"分段配速"、"每公里配速"、"配速变化趋势"等问题时使用。
-    适用于分析配速稳定性、前后半程对比等场景。
+    当用户问"分段配速"、"每公里配速"、"配速变化趋势"、"圈数据"等问题时使用。
+    适用于分析配速稳定性、前后半程对比、步态变化等场景。
 
     Args:
         activity_id: 活动ID（必须先从 search_activities 获取)
 
     Returns:
-        包含每公里配速、心率、步频等分段数据的字符串
+        包含每公里配速、心率、步频、步幅、垂直振幅等分段数据的字符串
     """
     client = get_client()
     splits = client.get_activity_splits(activity_id)
 
-    if not splits or not splits.get("lapDTOList"):
+    if not splits or not splits.get("lapDTOs"):
         return f"活动 {activity_id} 没有分段数据。"
 
-    # 格式化输出
-    result = f"活动 {activity_id} 分段数据:\n"
-    result += "-" * 60 + "\n"
-    result += f"{'段':<4} {'距离':<8} {'时长':<10} {'配速':<10} {'心率':<8}\n"
-    result += "-" * 60 + "\n"
+    laps = splits["lapDTOs"]
 
-    for i, lap in enumerate(splits["lapDTOList"], 1):
+    # 格式化输出 — 宽表
+    result = f"活动 {activity_id} 分段数据 ({len(laps)} 圈):\n"
+    result += "-" * 80 + "\n"
+    result += f"{'段':<4} {'距离':<8} {'配速':<10} {'心率':<8} {'步频':<8} {'步幅':<8} {'垂振':<8}\n"
+    result += "-" * 80 + "\n"
+
+    for i, lap in enumerate(laps, 1):
         dist = formatters.format_distance(lap.get("distance", 0) or 0)
-        duration = formatters.format_duration(lap.get("duration", 0) or 0)
         pace = formatters.format_pace(lap.get("averageSpeed"))
         hr = f"{int(lap['averageHR'])}" if lap.get("averageHR") else "--"
-        result += f"{i:<4} {dist:<8} {duration:<10} {pace:<10} {hr:<8}\n"
+        cadence = f"{int(lap['averageRunCadence'])}" if lap.get("averageRunCadence") else "--"
+        stride = f"{lap['strideLength']:.0f}cm" if lap.get("strideLength") else "--"
+        vo = f"{lap['verticalOscillation']:.1f}cm" if lap.get("verticalOscillation") else "--"
+        result += f"{i:<4} {dist:<8} {pace:<10} {hr:<8} {cadence:<8} {stride:<8} {vo:<8}\n"
 
     return result
 
@@ -657,7 +662,8 @@ def get_sleep_data(date_str: str = None) -> str:
     sleep = client.get_sleep_data(date_str)
     if not sleep:
         return f"没有找到 {date_str} 的睡眠数据"
-    # 提取数据
+    if isinstance(sleep, list):
+        sleep = sleep[0] if sleep else {}
     daily_sleep = sleep.get("dailySleepDTO", {})
     total_seconds = daily_sleep.get("sleepTimeSeconds", 0)
     deep_seconds = daily_sleep.get("deepSleepSeconds", 0)
@@ -712,8 +718,11 @@ def get_heart_rate_data(date_str: str = None) -> str:
     hr_data = client.get_heart_rates(date_str)
     if not hr_data:
         return f"没有找到 {date_str} 的心率数据"
-    # 提取数据
-    hr_values = hr_data.get("heartRateValues", [])
+    # API 可能返回 list 或 dict
+    if isinstance(hr_data, list):
+        hr_values = hr_data
+    else:
+        hr_values = hr_data.get("heartRateValues", [])
     if not hr_values:
         return "心率数据为空"
     # 计算统计数据
@@ -754,7 +763,9 @@ def get_resting_heart_rate(date_str: str = None) -> str:
     rhr_data = client.get_rhr_day(date_str)
     if not rhr_data:
         return f"没有找到 {date_str} 的静息心率数据"
-    # 提取数据
+    # API 可能返回 list 或 dict
+    if isinstance(rhr_data, list):
+        rhr_data = rhr_data[0] if rhr_data else {}
     rhr = rhr_data.get("restingHeartRate")
     # 格式化输出
     result = f"静息心率 ({date_str}):\n"
@@ -794,7 +805,8 @@ def get_hrv_data(date_str: str = None) -> str:
     hrv_data = client.get_hrv_data(date_str)
     if not hrv_data:
         return f"没有找到 {date_str} 的HRV数据"
-    # 提取数据
+    if isinstance(hrv_data, list):
+        hrv_data = hrv_data[0] if hrv_data else {}
     hrv_summary = hrv_data.get("hrvSummary", {})
     weekly_avg = hrv_summary.get("weeklyAvg", 0)
     last_night_avg = hrv_summary.get("lastNightAvg", 0)
@@ -907,7 +919,8 @@ def get_training_readiness(date_str: str = None) -> str:
     readiness = client.get_training_readiness(date_str)
     if not readiness:
         return f"没有找到 {date_str} 的训练准备度数据"
-    # 提取数据
+    if isinstance(readiness, list):
+        readiness = readiness[0] if readiness else {}
     score = readiness.get("trainingReadinessScore", 0)
     # 格式化输出
     result = f"训练准备度 ({date_str}):\n"
@@ -1138,6 +1151,8 @@ def get_daily_health_summary(date_str: str = None) -> str:
     try:
         sleep = client.get_sleep_data(date_str)
         if sleep:
+            if isinstance(sleep, list):
+                sleep = sleep[0] if sleep else {}
             daily_sleep = sleep.get("dailySleepDTO", {})
             total_seconds = daily_sleep.get("sleepTimeSeconds", 0)
             deep_seconds = daily_sleep.get("deepSleepSeconds", 0)
@@ -1166,6 +1181,8 @@ def get_daily_health_summary(date_str: str = None) -> str:
     try:
         hrv = client.get_hrv_data(date_str)
         if hrv:
+            if isinstance(hrv, list):
+                hrv = hrv[0] if hrv else {}
             hrv_summary = hrv.get("hrvSummary", {})
             weekly_avg = hrv_summary.get("weeklyAvg", 0)
             status = hrv_summary.get("status", "未知")
@@ -1388,7 +1405,7 @@ def classify_activity_type(activity_id: int = None) -> str:
     laps_data = client.get_activity_splits(activity_id)
     laps = []
     if laps_data:
-        laps = laps_data.get("lapDTOList", [])
+        laps = laps_data.get("lapDTOs", [])
 
     # 调用分类器
     result = classify_activity(
@@ -1560,7 +1577,7 @@ def search_by_training_type(
         # 获取分段
         try:
             laps_data = client.get_activity_splits(activity_id)
-            laps = laps_data.get("lapDTOList", []) if laps_data else []
+            laps = laps_data.get("lapDTOs", []) if laps_data else []
         except:
             laps = []
 
@@ -1625,3 +1642,476 @@ def search_by_training_type(
     output += f"\n⏱️ 处理时间: {total_time:.2f}s (获取活动: {fetch_time:.2f}s, 分析: {total_time - fetch_time:.2f}s)"
 
     return output
+
+
+# ==========================================
+# Deep Analysis Tools (深度分析工具)
+# ==========================================
+
+@tool
+def compare_interval_trainings(limit: int = 5) -> str:
+    """对比最近多次间歇训练的趋势（配速进步/退步、心率漂移变化）。
+
+    当用户问"间歇跑有没有进步"、"对比间歇训练"、"间歇跑趋势"时使用。
+    自动搜索最近的间歇训练，提取活跃段数据，横向对比。
+
+    Args:
+        limit: 对比最近几次，默认5
+
+    Returns:
+        间歇训练对比表格和趋势分析
+    """
+    from ..interval_analyzer import extract_interval_segments, compare_intervals, _calculate_pace
+
+    client = get_client()
+
+    # 搜索间歇训练
+    if _cache is not None:
+        cached = _cache.get_all_by_type("interval", limit=limit)
+        activities = []
+        for entry in cached:
+            basic = entry.get("basic_data", {})
+            activities.append({
+                "activityId": entry.get("activity_id"),
+                "activityName": basic.get("name", "未命名"),
+                "startTimeLocal": basic.get("start_time", ""),
+            })
+    else:
+        end = date.today().strftime("%Y-%m-%d")
+        start = (date.today() - timedelta(days=180)).strftime("%Y-%m-%d")
+        all_activities = client.get_activities_by_date(start, end)
+        activities = []
+        for a in (all_activities or []):
+            aid = a.get("activityId")
+            laps_data = client.get_activity_splits(aid)
+            laps = laps_data.get("lapDTOs", []) if laps_data else []
+            active = sum(1 for l in laps if l.get("intensityType") == "ACTIVE")
+            recovery = sum(1 for l in laps if l.get("intensityType") == "RECOVERY")
+            if active > 5 and recovery > 4:
+                activities.append(a)
+            if len(activities) >= limit:
+                break
+
+    if not activities:
+        return "没有找到间歇训练记录。"
+
+    # 分析每次间歇训练
+    analyses = []
+    for a in activities[:limit]:
+        aid = a.get("activityId")
+        name = a.get("activityName", "未命名")
+        d = (a.get("startTimeLocal") or "")[:10]
+
+        laps_data = client.get_activity_splits(aid)
+        laps = laps_data.get("lapDTOs", []) if laps_data else []
+
+        if not laps:
+            continue
+
+        analysis = extract_interval_segments(laps)
+        if analysis.get("intervals"):
+            analyses.append({
+                "date": d,
+                "name": name,
+                "analysis": analysis,
+            })
+
+    if len(analyses) < 2:
+        if len(analyses) == 1:
+            stats = analyses[0]["analysis"]["stats"]
+            return f"只找到1次间歇训练 ({analyses[0]['date']}):\n" \
+                   f"- 间歇组数: {stats.get('interval_count', 0)}\n" \
+                   f"- 平均配速: {_format_pace_sec(stats.get('avg_pace', 0))}\n" \
+                   f"- 心率漂移: +{stats.get('hr_drift', 0)} bpm\n" \
+                   f"需要至少2次才能对比趋势。"
+        return "间歇训练数据不足，无法对比。"
+
+    result = compare_intervals(analyses)
+    return result
+
+
+def _format_pace_sec(pace_seconds: float) -> str:
+    """格式化配速（秒/公里）"""
+    if pace_seconds <= 0:
+        return "N/A"
+    minutes = int(pace_seconds // 60)
+    seconds = int(pace_seconds % 60)
+    return f"{minutes}:{seconds:02d}/km"
+
+
+@tool
+def evaluate_lap_quality(activity_id: int = None) -> str:
+    """评估活动每圈的训练质量（圈评分系统）。
+
+    当用户问"这圈跑得怎么样"、"哪圈最好"、"圈质量"、"训练质量"时使用。
+    基于 Garmin 的 compliance score 评估每圈质量。
+
+    Args:
+        activity_id: 活动ID，不填则查最近一次
+
+    Returns:
+        每圈评分、最佳圈、最差圈、整体评级
+    """
+    from ..coach_evaluator import prepare_coach_evaluation_data
+
+    client = get_client()
+
+    if activity_id is None or activity_id <= 0:
+        activities = client.get_activities(limit=1)
+        if not activities:
+            return "没有找到活动记录。"
+        activity_id = activities[0].get("activityId")
+
+    # 获取活动详情和圈数据
+    activity = client.get_activity(activity_id)
+    if not activity:
+        return f"未找到活动 {activity_id}"
+
+    laps_data = client.get_activity_splits(activity_id)
+    laps = laps_data.get("lapDTOs", []) if laps_data else None
+
+    # 使用教练评估器分析
+    data = prepare_coach_evaluation_data(activity, lap_data=laps)
+
+    summary = activity.get("summaryDTO", {})
+    name = activity.get("activityName", "未命名")
+    dist_km = (summary.get("distance", 0) or 0) / 1000
+
+    result = f"📊 圈质量评估 - {name}\n"
+    result += f"距离: {dist_km:.1f}km | 活动ID: {activity_id}\n"
+    result += "=" * 50 + "\n\n"
+
+    # 整体评级
+    lap_dist = data["lap_distribution"]
+    result += f"【整体评级】{lap_dist['grade']}\n"
+    result += f"平均圈评分: {lap_dist['avg_score']}/100\n"
+    result += f"总圈数: {lap_dist['total']}\n\n"
+
+    # 圈分布
+    result += "【圈评分分布】\n"
+    result += f"  🟢 优秀(≥80): {lap_dist['excellent']} 圈\n"
+    result += f"  🔵 良好(60-79): {lap_dist['good']} 圈\n"
+    result += f"  🟡 一般(40-59): {lap_dist['fair']} 圈\n"
+    result += f"  🔴 较差(<40): {lap_dist['poor']} 圈\n\n"
+
+    # 最佳圈
+    if data["excellent_laps"]:
+        result += "【最佳圈】\n"
+        for lap in data["excellent_laps"]:
+            result += f"  第{lap['lap_number']}圈: {lap['distance_km']}km, " \
+                      f"配速{lap['pace']}/km, 心率{lap['hr']}bpm, 评分{lap['score']}\n"
+        result += "\n"
+
+    # 最差圈
+    if data["poor_laps"]:
+        result += "【需要改进的圈】\n"
+        for lap in data["poor_laps"]:
+            result += f"  第{lap['lap_number']}圈: {lap['distance_km']}km, " \
+                      f"配速{lap['pace']}/km, 心率{lap['hr']}bpm, 评分{lap['score']}\n"
+        result += "\n"
+
+    # 训练建议
+    if lap_dist['avg_score'] >= 80:
+        result += "💡 训练执行力优秀，配速控制稳定！"
+    elif lap_dist['avg_score'] >= 60:
+        result += "💡 训练质量良好，注意后半程配速保持。"
+    elif lap_dist['avg_score'] >= 40:
+        result += "💡 训练质量一般，建议关注配速一致性和心率控制。"
+    else:
+        result += "💡 训练质量需改进，建议降低目标配速，先求稳再求快。"
+
+    return result
+
+
+@tool
+def get_hr_zone_distribution(activity_id: int = None) -> str:
+    """展示活动的心率区间详细分布（Z1-Z5占比）。
+
+    当用户问"心率区间分布"、"训练强度分布"、"在哪个区间跑了多久"时使用。
+    用柱状图展示每个区间的占比。
+
+    Args:
+        activity_id: 活动ID，不填则查最近一次
+
+    Returns:
+        心率区间分布（含可视化柱状图）
+    """
+    client = get_client()
+
+    if activity_id is None or activity_id <= 0:
+        activities = client.get_activities(limit=1)
+        if not activities:
+            return "没有找到活动记录。"
+        activity_id = activities[0].get("activityId")
+
+    # 获取活动信息
+    activity = client.get_activity(activity_id)
+    name = activity.get("activityName", "未命名") if activity else "未知"
+
+    # 获取心率区间数据
+    hr_zones_data = client.get_activity_hr_in_timezones(activity_id)
+    if not hr_zones_data:
+        return f"活动 {activity_id} 没有心率区间数据。"
+
+    hr_zones = hr_zones_data.get("timeInHeartRateZones", [])
+    if not hr_zones:
+        return f"活动 {activity_id} 心率数据为空。"
+
+    # 使用分类器计算分布
+    from ..classifier import _calculate_zone_distribution, classify_activity
+
+    zone_dist = _calculate_zone_distribution(hr_zones)
+
+    # 计算总时间
+    total_secs = sum(z.get("secsInZone", 0) for z in hr_zones)
+
+    result = f"❤️ 心率区间分布 - {name}\n"
+    result += f"活动ID: {activity_id} | 总时间: {total_secs // 60}分钟\n"
+    result += "=" * 50 + "\n\n"
+
+    # 区间含义
+    zone_names = {
+        1: "Z1 轻松",
+        2: "Z2 有氧",
+        3: "Z3 节奏",
+        4: "Z4 阈值",
+        5: "Z5 最大",
+    }
+
+    # 柱状图
+    for z in range(1, 6):
+        pct = zone_dist.get(z, 0)
+        bar = "█" * int(pct / 2)  # 每2%一个块
+        mins = sum(zn.get("secsInZone", 0) for zn in hr_zones if zn.get("zoneNumber") == z) / 60
+        result += f"{zone_names[z]:<10} {pct:5.1f}% {bar} ({mins:.0f}分钟)\n"
+
+    result += "\n"
+
+    # 训练类型判断
+    classification = classify_activity(
+        activity_type=activity.get("activityType", {}).get("typeKey", "") if activity else "",
+        event_type=activity.get("eventType", {}).get("typeKey", "") if activity else "",
+        total_distance=activity.get("summaryDTO", {}).get("distance", 0) if activity else 0,
+        laps=[],
+        hr_zones=hr_zones,
+    )
+
+    from ..classifier import TRAINING_TYPE_NAMES
+    type_name = TRAINING_TYPE_NAMES.get(classification["type"], classification["type"])
+    result += f"📌 训练类型判断: {type_name}\n"
+    result += f"   依据: {classification['reason']}\n\n"
+
+    # 强度评估
+    z45 = zone_dist.get(4, 0) + zone_dist.get(5, 0)
+    z23 = zone_dist.get(2, 0) + zone_dist.get(3, 0)
+
+    if z45 > 30:
+        result += "⚠️ 高强度占比偏高，注意恢复。"
+    elif z23 > 70:
+        result += "✅ 以有氧为主，很好的基础训练。"
+    else:
+        result += "💡 强度分布均衡。"
+
+    return result
+
+
+def _infer_date_for_tools(text: str, today=None):
+    """把自然语言日期转成 YYYY-MM-DD，供工具函数内部使用。"""
+    import re
+    from datetime import date, timedelta
+    if today is None:
+        today = date.today()
+    text = text.strip()
+    # 直接是 YYYY-MM-DD
+    if re.match(r'\d{4}-\d{2}-\d{2}', text):
+        return text
+    # 昨天 / 今天 / 前天
+    if "前天" in text:
+        return (today - timedelta(days=2)).strftime("%Y-%m-%d")
+    if "昨天" in text:
+        return (today - timedelta(days=1)).strftime("%Y-%m-%d")
+    if "今天" in text:
+        return today.strftime("%Y-%m-%d")
+    # 本周 / 上周
+    if "上周" in text:
+        last_monday = today - timedelta(days=today.weekday() + 7)
+        last_sunday = last_monday + timedelta(days=6)
+        return f"{last_monday.strftime('%Y-%m-%d')},{last_sunday.strftime('%Y-%m-%d')}"
+    if "本周" in text or "这周" in text:
+        monday = today - timedelta(days=today.weekday())
+        return f"{monday.strftime('%Y-%m-%d')},{today.strftime('%Y-%m-%d')}"
+    # 本月 / 这个月
+    if "本月" in text or "这个月" in text:
+        first = today.replace(day=1)
+        return f"{first.strftime('%Y-%m-%d')},{today.strftime('%Y-%m-%d')}"
+    # 上月 / 上个月
+    if "上月" in text or "上个月" in text:
+        first_this = today.replace(day=1)
+        last_month_end = first_this - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        return f"{last_month_start.strftime('%Y-%m-%d')},{last_month_end.strftime('%Y-%m-%d')}"
+    # X月X日
+    m = re.search(r'(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]', text)
+    if m:
+        month, day = int(m.group(1)), int(m.group(2))
+        year = today.year
+        try:
+            d = date(year, month, day)
+            if d > today:
+                d = date(year - 1, month, day)
+            return d.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    # X天前
+    m = re.search(r'(\d+)\s*天前', text)
+    if m:
+        return (today - timedelta(days=int(m.group(1)))).strftime("%Y-%m-%d")
+    return today.strftime("%Y-%m-%d")
+
+
+@tool
+def filter_laps_by_pace(
+    pace_threshold: str = "8:00",
+    direction: str = "slower",
+    activity_type: str = "running",
+    start_date: str = None,
+    end_date: str = None,
+    limit: int = 20,
+) -> str:
+    """按配速条件过滤所有活动的圈数据，返回符合条件的圈的完整指标。
+
+    当用户问"配速慢于X的圈"、"哪些圈掉速了"、"配速超过8分钟的圈"时使用。
+    自动搜索指定时间范围内的活动，逐圈过滤，返回心率、配速、步频、步幅、垂直振幅。
+
+    Args:
+        pace_threshold: 配速阈值，格式 "M:SS"，如 "8:00" 表示 8分钟/公里
+        direction: "slower" = 慢于此配速(>阈值)，"faster" = 快于此配速(<阈值)
+        activity_type: 活动类型 "running" 或 "hiking"，支持逗号分隔多类型如 "running,hiking"
+        start_date: 开始日期，支持自然语言如"本月"、"上周"，默认本月
+        end_date: 结束日期，默认今天
+        limit: 最多检查多少个活动，默认20
+
+    Returns:
+        符合条件的圈的详细数据（配速、心率、步频、步幅、垂直振幅）
+    """
+    import re as _re
+    from datetime import date as _date, timedelta as _timedelta
+
+    client = get_client()
+
+    # 解析配速阈值 → 速度 (m/s)
+    m = _re.match(r'(\d+):(\d+)', pace_threshold)
+    if not m:
+        return f"配速格式错误: {pace_threshold}，请用 M:SS 格式，如 8:00"
+    threshold_min = int(m.group(1)) + int(m.group(2)) / 60
+    threshold_speed = 1000 / (threshold_min * 60)  # m/s
+
+    # 解析日期
+    today = _date.today()
+    if start_date:
+        sd = _infer_date_for_tools(start_date, today)
+        # 如果是范围（含逗号），取第一个
+        if "," in sd:
+            sd = sd.split(",")[0]
+    else:
+        sd = today.replace(day=1).strftime("%Y-%m-%d")
+
+    if end_date:
+        ed = _infer_date_for_tools(end_date, today)
+        if "," in ed:
+            ed = ed.split(",")[-1]
+    else:
+        ed = today.strftime("%Y-%m-%d")
+
+    # 搜索活动 — 支持多种类型（逗号分隔）
+    activity_types = [t.strip() for t in activity_type.split(",")]
+    activities = []
+    for atype in activity_types:
+        acts = client.get_activities_by_date(sd, ed, atype) or []
+        activities.extend(acts)
+    if not activities:
+        return f"在 {sd} 到 {ed} 期间没有找到{activity_type}活动。"
+
+    # 逐活动检查圈
+    matching_laps = []
+    activities_checked = 0
+
+    for a in activities[:limit]:
+        aid = a.get("activityId")
+        name = a.get("activityName", "未命名")
+        a_date = (a.get("startTimeLocal") or "")[:10]
+
+        splits = client.get_activity_splits(aid)
+        laps = splits.get("lapDTOs", []) if splits else []
+        if not laps:
+            continue
+
+        activities_checked += 1
+        for i, lap in enumerate(laps, 1):
+            speed = lap.get("averageSpeed") or 0
+            if speed <= 0:
+                continue
+
+            pace_min_km = 1000 / (speed * 60)
+
+            if direction == "slower" and pace_min_km <= threshold_min:
+                continue
+            if direction == "faster" and pace_min_km >= threshold_min:
+                continue
+
+            matching_laps.append({
+                "activity_id": aid,
+                "activity_name": name,
+                "activity_date": a_date,
+                "lap_number": i,
+                "distance_m": lap.get("distance", 0),
+                "pace_min_km": pace_min_km,
+                "hr": lap.get("averageHR"),
+                "cadence": lap.get("averageRunCadence"),
+                "stride_cm": lap.get("strideLength"),
+                "vo_cm": lap.get("verticalOscillation"),
+                "gct_ms": lap.get("groundContactTime"),
+            })
+
+    if not matching_laps:
+        dir_text = "慢于" if direction == "slower" else "快于"
+        return f"在 {sd} 到 {ed} 期间，检查了 {activities_checked} 个活动，没有找到配速{dir_text}{pace_threshold}/km 的圈。"
+
+    # 格式化输出
+    dir_text = "慢于" if direction == "slower" else "快于"
+    result = f"🔍 配速{dir_text}{pace_threshold}/km 的圈 ({sd} ~ {ed})\n"
+    result += f"共 {len(matching_laps)} 个圈 / 检查了 {activities_checked} 个活动\n"
+    result += "=" * 80 + "\n\n"
+
+    # 按活动分组
+    from collections import defaultdict
+    by_activity = defaultdict(list)
+    for lap in matching_laps:
+        by_activity[lap["activity_id"]].append(lap)
+
+    for aid, laps in by_activity.items():
+        first = laps[0]
+        result += f"📌 {first['activity_date']} {first['activity_name']} [ID:{aid}]\n"
+        result += f"{'圈':<4} {'距离':<8} {'配速':<10} {'心率':<8} {'步频':<8} {'步幅':<8} {'垂振':<8}\n"
+        result += "-" * 70 + "\n"
+
+        for lap in laps:
+            dist = f"{lap['distance_m']/1000:.2f}km" if lap['distance_m'] else "--"
+            pace = formatters.format_pace_from_min_km(lap['pace_min_km'])
+            hr = f"{int(lap['hr'])}bpm" if lap['hr'] else "--"
+            cad = f"{int(lap['cadence'])}spm" if lap['cadence'] else "--"
+            stride = f"{lap['stride_cm']:.0f}cm" if lap['stride_cm'] else "--"
+            vo = f"{lap['vo_cm']:.1f}cm" if lap['vo_cm'] else "--"
+            result += f"{lap['lap_number']:<4} {dist:<8} {pace:<10} {hr:<8} {cad:<8} {stride:<8} {vo:<8}\n"
+        result += "\n"
+
+    # 汇总统计
+    paces = [l['pace_min_km'] for l in matching_laps]
+    hrs = [l['hr'] for l in matching_laps if l['hr']]
+    result += "📊 汇总:\n"
+    result += f"  平均配速: {formatters.format_pace_from_min_km(sum(paces)/len(paces))}\n"
+    result += f"  最慢配速: {formatters.format_pace_from_min_km(max(paces))}\n"
+    if hrs:
+        result += f"  平均心率: {sum(hrs)/len(hrs):.0f} bpm\n"
+
+    return result

@@ -33,6 +33,14 @@ env/
 .vscode/
 .idea/
 
+# 对话历史（敏感数据）
+memory/
+
+# 临时文件/备份
+*.bak
+.omc/
+feedback/
+
 # 系统文件
 .DS_Store
 Thumbs.db
