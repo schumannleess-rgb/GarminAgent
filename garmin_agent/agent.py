@@ -497,19 +497,46 @@ class GarminAgent:
 
         return {"tool": "get_latest_activity", "params": {}}
 
-    def _archive_chat(self, user_msg: str, assistant_msg: str, session_id: str, tool_name: str, tool_result: str):
+    def _archive_chat(self, user_msg: str, assistant_msg: str, session_id: str,
+                      plan: Plan, execution_result: Dict[str, Any]):
         try:
             log_file = self._logs_dir / f"chat_{datetime.now().strftime('%Y-%m-%d')}.jsonl"
+
+            # 构建完整的执行记录（用于调试和审计）
+            exec_log = {
+                "type": execution_result.get("type"),
+                "tool_name": execution_result.get("tool_name"),
+                "error": execution_result.get("error"),
+                "stdout_preview": execution_result.get("stdout", "")[:500] if execution_result.get("stdout") else "",
+            }
+            if execution_result.get("type") == "code":
+                exec_log["code_preview"] = execution_result.get("code", "")[:1000]
+                # result 可能很大，只记录类型和长度
+                result = execution_result.get("result")
+                if result is not None:
+                    try:
+                        result_json = json.dumps(result, ensure_ascii=False, default=str)
+                        exec_log["result_type"] = type(result).__name__
+                        exec_log["result_length"] = len(result_json)
+                        exec_log["result_preview"] = result_json[:1000]
+                    except Exception:
+                        exec_log["result_type"] = type(result).__name__
+                        exec_log["result_preview"] = str(result)[:1000]
+
             entry = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": session_id,
                 "user": user_msg,
-                "assistant": assistant_msg,
-                "tool": tool_name,
-                "tool_result_preview": tool_result[:500] if tool_result else "",
+                "assistant_preview": assistant_msg[:300] if assistant_msg else "",
+                "plan": {
+                    "mode": plan.mode,
+                    "tool_name": plan.tool_name,
+                    "reasoning": plan.reasoning,
+                },
+                "execution": exec_log,
             }
             with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
         except Exception as e:
             logger.warning(f"Archive failed: {e}")
 
@@ -599,9 +626,7 @@ class GarminAgent:
             # 5. 存档
             history.add_message(HumanMessage(content=message))
             history.add_message(AIMessage(content=response))
-            tool_name = plan.tool_name or ("code" if plan.mode == "code" else plan.mode)
-            tool_result = json.dumps(execution_result, ensure_ascii=False, default=str)[:500]
-            self._archive_chat(message, response, session_id, tool_name, tool_result)
+            self._archive_chat(message, response, session_id, plan, execution_result)
             self._compress_history(session_id)
 
             return response

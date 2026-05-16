@@ -55,11 +55,31 @@ class Plan:
 # Sandbox Executor
 # ==========================================
 
+# 沙箱允许导入的模块白名单
+_ALLOWED_IMPORTS = frozenset({
+    "json", "datetime", "re", "math", "collections", "statistics",
+    "time", "typing", "itertools", "functools", "decimal", "fractions",
+    "hashlib", "random", "string", "inspect", "types", "enum",
+})
+
+
+def _safe_import(name, *args, **kwargs):
+    """安全的 __import__，只允许导入白名单中的标准库模块。"""
+    # 处理形如 'json' 或 'collections.abc' 的导入
+    top_level = name.split(".")[0]
+    if top_level not in _ALLOWED_IMPORTS:
+        raise ImportError(
+            f"沙箱禁止导入模块 '{name}'。允许的标准库模块: {sorted(_ALLOWED_IMPORTS)}"
+        )
+    return __import__(name, *args, **kwargs)
+
+
 class SandboxExecutor:
     """Restricted Python code execution environment for the agent.
 
     - Pre-injects `client` (GarminClient) and safe standard libraries
     - Restricts builtins to prevent dangerous operations
+    - Supports safe `from xxx import yyy` via whitelisted __import__
     - Captures stdout and the `result` variable
     - Enforces execution timeout
     """
@@ -112,6 +132,28 @@ class SandboxExecutor:
             "IndexError": IndexError,
             "Exception": Exception,
             "RuntimeError": RuntimeError,
+            "__import__": _safe_import,
+            "type": type,
+            "classmethod": classmethod,
+            "staticmethod": staticmethod,
+            "property": property,
+            "vars": vars,
+            "locals": locals,
+            "globals": globals,
+            "dir": dir,
+            "repr": repr,
+            "format": format,
+            "chr": chr,
+            "ord": ord,
+            "hex": hex,
+            "bin": bin,
+            "oct": oct,
+            "divmod": divmod,
+            "pow": pow,
+            "all": all,
+            "any": any,
+            "next": next,
+            "iter": iter,
         }
 
         globals_dict: Dict[str, Any] = {
