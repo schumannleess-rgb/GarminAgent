@@ -225,7 +225,7 @@ class GarminAgent:
         # 计划生成用低温（确定性决策）
         self.llm = ChatAnthropic(
             model=self.model, temperature=0.2,
-            api_key=self.api_key, base_url=self.base_url, max_tokens=2048,
+            api_key=self.api_key, base_url=self.base_url, max_tokens=8192,
         )
         # 回复格式化用高温（创造性表达），token 上限提高以支持多活动明细输出
         self.format_llm = ChatAnthropic(

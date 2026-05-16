@@ -539,6 +539,12 @@ class Planner:
                 content = json_match.group(1)
 
             logger.warning(f"[PLAN_JSON] extracted len={len(content)} preview={content[:200]!r}")
+            if not content.strip():
+                thinking_count = sum(1 for item in raw if isinstance(item, dict) and item.get("type") == "thinking")
+                raise ValueError(
+                    f"API 只返回了 thinking block（共{thinking_count}个），text block 为空。"
+                    f"raw block types: {[item.get('type') for item in raw] if isinstance(raw, list) else type(raw).__name__}"
+                )
             plan_dict = json.loads(content.strip())
             logger.info(f"Plan: {plan_dict}")
 
@@ -552,10 +558,9 @@ class Planner:
             )
         except Exception as e:
             logger.warning(f"Plan generation failed: {e}")
-            # Fallback to get_latest_activity
+            # Fallback: direct mode with error message, no tool call
             return Plan(
-                mode="tool",
-                tool_name="get_latest_activity",
-                params={},
-                reasoning=f"计划生成失败，fallback: {e}",
+                mode="direct",
+                reply="⚠️ 计划生成失败，请再说一遍你的问题，或尝试简化查询。",
+                reasoning=f"计划生成失败: {e}",
             )
