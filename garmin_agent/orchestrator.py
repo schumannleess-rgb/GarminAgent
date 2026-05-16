@@ -490,6 +490,111 @@ class Planner:
     def __init__(self, llm: Any):
         self.llm = llm
 
+    def _extract_json_from_content(self, content: str) -> dict:
+        """从 LLM 响应中提取 JSON，支持多种格式。"""
+        import re as _re
+
+        # 策略 1: markdown code block
+        m = _re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, _re.DOTALL)
+        if m:
+            return json.loads(m.group(1).strip())
+
+        # 策略 2: 直接找最外层花括号（贪婪匹配最长合法 JSON）
+        # 从第一个 { 开始，找匹配的 }
+        start = content.find('{')
+        if start != -1:
+            # 尝试从长到短截取
+            for end in range(len(content), start, -1):
+                snippet = content[start:end]
+                if snippet.count('{') == snippet.count('}'):
+                    try:
+                        return json.loads(snippet)
+                    except json.JSONDecodeError:
+                        continue
+
+        # 策略 3: 清理常见前缀后重试
+        cleaned = _re.sub(r'^[^{]*', '', content)
+        cleaned = _re.sub(r'[^}]*$', '', cleaned)
+        if cleaned:
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError:
+                pass
+
+        raise json.JSONDecodeError("无法从响应中提取 JSON", content, 0)
+
+    def _build_fallback_plan(self, user_message: str, reason: str) -> Plan:
+        """当 LLM 计划生成失败时，基于关键词分析选择合理的 fallback 模式。"""
+        msg = user_message.lower()
+
+        # 复杂查询特征词（需要 code 模式）
+        # 注意："最近"、"这周"等词在简单查询中也很常见，故不列入
+        complex_keywords = [
+            "配速", "圈", "步频", "步幅", "垂振", "垂直振幅", "触地",
+            "筛选", "过滤", "大于", "小于", "超过", "低于", ">", "<",
+            "每次", "各次", "所有", "趋势", "对比",
+        ]
+        is_complex = any(kw in msg for kw in complex_keywords)
+
+        if is_complex:
+            # 生成通用的 code fallback：拉取本月跑步/徒步活动并返回结构化数据
+            fallback_code = '''from datetime import date
+import json
+today = date.today()
+start = today.replace(day=1).strftime('%Y-%m-%d')
+end = today.strftime('%Y-%m-%d')
+
+# 获取本月跑步和徒步活动
+activities = []
+try:
+    running = client.get_activities_by_date(start, end, 'running') or []
+    hiking = client.get_activities_by_date(start, end, 'hiking') or []
+    activities = running + hiking
+except Exception as e:
+    print(f"获取活动列表失败: {e}")
+
+result = {
+    "period": f"{start} ~ {end}",
+    "activity_count": len(activities),
+    "activities": [],
+    "note": "这是 fallback 生成的通用查询代码，结果可能不够精确，但已尽力获取数据。"
+}
+
+for a in activities[:20]:
+    aid = a.get('activityId')
+    if not aid:
+        continue
+    try:
+        splits = client.get_activity_splits(aid)
+        laps = splits.get('lapDTOs', []) if splits else []
+    except Exception:
+        laps = []
+    result["activities"].append({
+        "activity_id": aid,
+        "name": a.get('activityName'),
+        "date": (a.get('startTimeLocal') or '')[:10],
+        "type": (a.get('activityType') or {}).get('typeKey'),
+        "distance_km": round((a.get('distance') or 0)/1000, 2),
+        "avg_speed_mps": a.get('averageSpeed'),
+        "avg_hr": a.get('averageHR'),
+        "laps_count": len(laps),
+        "laps": laps,
+    })
+'''
+            return Plan(
+                mode="code",
+                code=fallback_code,
+                reasoning=f"{reason}，触发复杂查询 fallback（关键词匹配）",
+            )
+
+        # 简单查询 fallback
+        return Plan(
+            mode="tool",
+            tool_name="get_latest_activity",
+            params={},
+            reasoning=f"{reason}，fallback 到 get_latest_activity",
+        )
+
     def create_plan(self, user_message: str, history_messages: Optional[List[Any]] = None) -> Plan:
         """Generate a Plan from the user message."""
         import re as _re
@@ -526,13 +631,11 @@ class Planner:
             else:
                 content = str(raw)
 
-            # Extract JSON
-            import re as _re
-            json_match = _re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, _re.DOTALL)
-            if json_match:
-                content = json_match.group(1)
+            if not content or not content.strip():
+                logger.warning("LLM returned empty content")
+                raise ValueError("Empty LLM response")
 
-            plan_dict = json.loads(content.strip())
+            plan_dict = self._extract_json_from_content(content)
             logger.info(f"Plan: {plan_dict}")
 
             return Plan(
@@ -545,10 +648,4 @@ class Planner:
             )
         except Exception as e:
             logger.warning(f"Plan generation failed: {e}")
-            # Fallback to get_latest_activity
-            return Plan(
-                mode="tool",
-                tool_name="get_latest_activity",
-                params={},
-                reasoning=f"计划生成失败，fallback: {e}",
-            )
+            return self._build_fallback_plan(user_message, f"计划生成失败: {e}")
