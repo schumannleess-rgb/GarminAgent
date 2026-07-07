@@ -33,16 +33,23 @@ cp .env.example .env
 # 编辑 .env，填入你的 LLM API Key 和 Garmin 账号
 ```
 
-```
-# LLM API (必需)
-ZHIPU_API_KEY=your_api_key
-ZHIPU_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
-ZHIPU_MODEL=mimo-v2.5
+```bash
+# .env 内容
 
-# Garmin 账号 (首次登录需要)
-GARMIN_EMAIL=your_email@qq.com
+# === LLM API 配置 ===
+# 智谱 GLM API Key: 到智谱开放平台 https://open.bigmodel.cn 注册获取
+# 支持智谱、OpenAI、Anthropic 等任何兼容 API 的服务商
+ZHIPU_API_KEY=your_api_key_here
+ZHIPU_BASE_URL=https://open.bigmodel.cn/api/anthropic
+ZHIPU_MODEL=glm-4.7
+
+# === Garmin 账号 ===
+# 首次登录需要账号密码，之后 TOKEN 自动保存到 ./tokens/
+GARMIN_EMAIL=your_email@example.com
 GARMIN_PASSWORD=your_password
 ```
+
+> ⚠️ **安全提示**：`.env` 已在 `.gitignore` 中排除，不会被提交到 Git。不要把 `.env` 上传到公开仓库。
 
 ### 4. 运行
 
