@@ -1,172 +1,185 @@
-# Garmin Agent
+# Garmin Agent 🏃
 
-基于 LangChain 的 Garmin 训练助手。
-
----
-
-## 开发方法论
-
-本项目遵循**以终为始**的开发流程：
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    开发循环                              │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  1. 【目标文档】写清楚要做什么、为什么做                 │
-│         ↓                                               │
-│  2. 【测试设计】根据目标设计测试用例                     │
-│       - 测试是目标的验证方式                             │
-│       - 先确定预期结果，再写代码                         │
-│         ↓                                               │
-│  3. 【架构设计】简略描述实现方案                         │
-│         ↓                                               │
-│  4. 【开发实现】编码 + 单元测试                          │
-│         ↓                                               │
-│  5. 【集成测试】验证整体功能                             │
-│         ↓                                               │
-│  6. 【文档更新】同步更新本文档                           │
-│         ↓                                               │
-│  7. 进入下一个循环                                       │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-**文档分两类：**
-- **目标文档**：稳定，不随实现变化（要解决什么问题）
-- **实现文档**：迭代，记录当前方案（怎么解决的）
-
----
-
-## 当前状态
-
-### 已完成节点
-
-| 节点 | 状态 | 说明 |
-|------|------|------|
-| 基础设施测试 | ✅ | Log 存储、Memory 存储 |
-| Garmin 连接 | ✅ | TOKEN 认证正常 |
-| LLM 连接 | ✅ | 智谱 GLM-4.7 (Anthropic 端点) |
-| Tool 定义 | ✅ | 4 个活动查询工具 |
-| Agent 初始化 | ✅ | LangChain Agent 正常 |
-| 端到端测试 | ✅ | 单轮对话正常 |
-| 多轮对话 | ✅ | Memory 上下文保持正常 |
-| 步态数据 | ✅ | 活动详情查询正常 |
-
-### 技术栈
-
-- **LLM**: 智谱 GLM-4.7 (Anthropic 兼容端点)
-- **Agent**: LangChain + ChatAnthropic
-- **API**: garminconnect
-- **Memory**: ChatMessageHistory (支持多轮对话)
-
----
-
-## 下一步任务
-
-| 优先级 | 任务 | 状态 |
-|--------|------|------|
-| P0 | 完善测试用例（多轮对话、边界情况） | 待开始 |
-| P1 | 添加训练负荷工具 (TSS/TRIMP) | 待开始 |
-| P1 | 添加有氧效率工具 (AEI) | 待开始 |
-| P2 | 支持本地 LLM (Ollama) | 待开始 |
+> AI 驱动的 Garmin 训练分析助手。基于 Plan & Execute 架构，用自然语言查询训练数据。
 
 ---
 
 ## 快速开始
 
-### 安装
+### 1. 克隆代码
 
 ```bash
-cd D:\Garmin\garmin-agent
+git clone https://github.com/schumannleess-rgb/GarminAgent.git
+cd GarminAgent
+```
+
+### 2. 安装依赖
+
+```bash
+# 推荐：使用 setup.py（自动创建虚拟环境）
+python setup.py install
+
+# 或手动安装
+python -m venv venv
+source venv/bin/activate        # macOS
+venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 ```
 
-### 配置
+### 3. 配置
 
-编辑 `.env` 文件：
+```bash
+cp .env.example .env
+# 编辑 .env，填入你的 LLM API Key 和 Garmin 账号
+```
 
 ```
+# LLM API (必需)
 ZHIPU_API_KEY=your_api_key
-ZHIPU_BASE_URL=https://open.bigmodel.cn/api/anthropic
-ZHIPU_MODEL=glm-5
+ZHIPU_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
+ZHIPU_MODEL=mimo-v2.5
+
+# Garmin 账号 (首次登录需要)
+GARMIN_EMAIL=your_email@qq.com
+GARMIN_PASSWORD=your_password
 ```
 
-### 运行
+### 4. 运行
 
 ```bash
 python main.py
+# 或使用 setup.py
+python setup.py run
 ```
 
-### 测试
+---
+
+## 架构
+
+```
+用户提问
+  ↓
+Planner (LLM) → 决定模式: tool / code / direct
+  ↓
+┌─ tool mode → 调用预设工具（21个，快速路径）
+├─ code mode → LLM 生成 Python 代码在沙箱执行（跨活动分析）
+└─ direct mode → 闲聊直接回复
+  ↓
+Synthesizer (LLM) → 基于数据 + 格式规范 → 生成带解读的回复
+```
+
+**核心设计原则**：数据获取用 Python（确定性），数据解读用 LLM（灵活性）。
+
+---
+
+## 功能
+
+### 对话式查询
+
+```
+你: 最近跑了什么？
+助手: 📊 最近一次活动 📡 数据来自 Garmin
+      [活动详情 + 建议]
+
+你: 今天状态如何？
+助手: 📊 每日健康摘要 📡 数据来自 Garmin
+      [睡眠 + HRV + 训练准备度]
+
+你: 本月跑步配速>8的圈数明细
+助手: [逐活动 + 逐圈明细表格 + 汇总]
+```
+
+### 预设工具（21个）
+
+| 分类 | 工具 | 示例问题 |
+|------|------|----------|
+| 🏃 活动查询 | `search_activities`, `get_activity_detail` | "上次跑步" / "活动详情" |
+| 🏋️ 训练类型 | `search_by_training_type`, `classify_activity_type` | "间歇跑" / "节奏跑" |
+| 📊 分段分析 | `get_activity_splits`, `get_interval_analysis` | "分段数据" / "间歇分析" |
+| 💪 能力评估 | `get_training_capacity`, `get_training_status` | "体能水平" / "比赛预测" |
+| 😴 健康恢复 | `get_daily_health_summary` | "今天状态" / "睡眠" |
+
+### CLI 模式
 
 ```bash
-# 基础设施测试
-python test_infra.py
-
-# 业务功能测试
-python test_business.py
-
-# 对话测试
-python test_chat.py
+python garmin_cli.py latest      # 最近一次活动
+python garmin_cli.py today       # 今天的活动
+python garmin_cli.py week 2      # 最近2周
+python garmin_cli.py health      # 健康数据
+python garmin_cli.py capacity    # 训练能力
 ```
 
 ---
 
-## 项目结构
+## 技术栈
+
+- **LLM**: 智谱 GLM / OpenAI / Anthropic（Anthropic 兼容 API）
+- **框架**: LangChain + ChatAnthropic
+- **API**: garminconnect（Garmin Connect 数据接口）
+- **认证**: 自动 TOKEN 持久化（首次需账号密码）
+- **架构**: Plan & Execute 编排器（支持代码沙箱执行）
+
+---
+
+## 目录结构
 
 ```
-garmin-agent/
-├── .env                    # 配置文件
-├── tokens/                 # Garmin TOKEN (独立存储)
+GarminAgent/
 ├── garmin_agent/
-│   ├── agent.py            # LangChain Agent
+│   ├── agent.py            # Plan & Execute 编排器
+│   ├── orchestrator.py     # Planner + SandboxExecutor
 │   ├── client.py           # Garmin API 客户端
 │   ├── formatters.py       # 数据格式化
+│   ├── classifier.py       # 训练类型分类器
+│   ├── cache_manager.py    # 活动分类缓存
+│   ├── cache_sync.py       # 缓存同步
 │   └── tools/
-│       └── activity_tools.py
-├── main.py                 # 入口
-├── test_infra.py           # 基础设施测试
-├── test_business.py        # 业务功能测试
-├── test_chat.py            # 对话测试
-└── README.md               # 本文件
+│       └── activity_tools.py   # 21个预设工具
+├── login/
+│   └── garmin_login.py     # Garmin 认证模块
+├── scripts/report/         # 报告生成脚本
+├── docs/
+│   └── agent-inventory.md  # Agent 现状梳理
+├── main.py                 # 入口（交互式）
+├── garmin_cli.py           # CLI 入口
+├── requirements.txt        # 依赖
+├── .env.example            # 配置模板
+├── Makefile / setup.py     # 构建脚本
+└── README.md
 ```
 
 ---
 
-## 可用工具
+## 常见问题
 
-| 工具 | 功能 | 示例问题 |
-|------|------|----------|
-| `get_latest_activity` | 获取最近活动 | "最近跑了什么？" |
-| `get_activities_by_date` | 按日期查询 | "3月跑了多少？" |
-| `get_week_summary` | 周统计 | "这周跑量多少？" |
-| `get_activity_detail` | 活动详情 | "步态数据" |
+### LLM 幻觉怎么处理？
 
----
+Synthesizer 严格基于工具返回的原始数据生成回复，不允许编造数值。Plan & Execute 架构确保所有数据经过沙箱验证。
 
-## 相关文档
+### 跨平台支持？
 
-| 文档 | 说明 |
-|------|------|
-| `training_analytics_design.md` | 训练分析设计 |
-| `AGENT_DESIGN_NOTES.md` | Agent 设计笔记 |
-| `docs/api_fields_reference.md` | API 字段参考 |
+Windows 和 macOS 均可运行。使用 `setup.py` 自动检测平台。
+
+### 怎么换 LLM？
+
+修改 `.env` 中的 `ZHIPU_BASE_URL` 和 `ZHIPU_MODEL` 指向其他兼容 API（如 Ollama 本地模型）。
 
 ---
 
 ## 更新日志
 
-### 2026-03-24 (续)
-- 修复 ChatAnthropic 输出格式与 Memory 不兼容问题
-- 修复 get_activity_detail 数据解析 (从 summaryDTO 读取)
-- 添加步态数据格式化函数 (format_gct, format_vo, format_stride)
-- 多轮对话测试通过
-- 步态数据查询测试通过
-- 更新默认模型为 GLM-4.7
+### 0.4.0
+- Plan & Execute 架构（Planner + SandboxExecutor + Synthesizer）
+- 21个预设工具 + 代码沙箱执行
+- 明细优先输出规范
+- 历史对话压缩与 ID 上下文注入
 
-### 2026-03-24
-- 完成基础设施测试
-- 完成业务功能测试
-- 修复 ChatAnthropic 兼容性问题
-- 端到端对话测试通过
+### 0.2.0
+- 初始 LangChain Agent 版本
+- 基础活动查询 + 健康数据
+
+---
+
+## License
+
+MIT

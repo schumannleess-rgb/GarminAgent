@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跑步训练报表</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --gold:#c9a84c;--lime:#8fba2e;--coral:#e05a3a;--sky:#3d9fd4;
+  --dark:#111318;--card:#1c2028;--line:rgba(255,255,255,0.08);
+  --t1:rgba(255,255,255,0.95);--t2:rgba(255,255,255,0.6);--t3:rgba(255,255,255,0.3);
+  --serif:'DM Serif Display',serif;--mono:'Geist Mono',monospace;--cn:'Noto Sans SC',sans-serif;
+}
+.app{font-family:var(--cn);background:#f2f0eb;padding:20px 0 40px;}
+.tabs{display:flex;gap:5px;padding:0 16px 18px;overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tb{flex-shrink:0;padding:6px 14px;border-radius:100px;border:1px solid #ccc;background:#fff;font-family:var(--cn);font-size:12px;color:#666;cursor:pointer;transition:all .15s;}
+.tb.on{background:#111;border-color:#111;color:#fff;}
+.pane{display:none;}.pane.on{display:block;}
+
+/* ======== MORNING ======== */
+.m-wrap{display:flex;justify-content:center;padding:0 16px;}
+.phone{width:320px;background:linear-gradient(155deg,#0e1218 0%,#141820 60%,#0c1016 100%);border-radius:32px;padding:28px 20px 32px;border:1px solid rgba(255,255,255,0.07);position:relative;overflow:hidden;}
+.phone::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(61,159,212,0.1) 0%,transparent 70%);pointer-events:none;}
+.notch{width:80px;height:4px;background:rgba(255,255,255,0.12);border-radius:10px;margin:0 auto 22px;}
+.m-ts{font-family:var(--mono);font-size:10px;color:var(--t3);text-align:center;margin-bottom:16px;letter-spacing:.15em;}
+.m-ring-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:20px;}
+.m-ring-box{position:relative;width:110px;height:110px;margin-bottom:10px;}
+.m-ring-box svg{position:absolute;}
+.m-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.m-big{font-family:var(--mono);font-size:32px;font-weight:600;color:var(--sky);line-height:1;}
+.m-unit{font-size:9px;color:var(--t3);letter-spacing:.1em;margin-top:2px;}
+.m-status-row{text-align:center;}
+.m-status-sub{font-size:9px;color:var(--t3);letter-spacing:.1em;margin-bottom:3px;}
+.m-status-val{font-size:14px;font-weight:500;color:var(--sky);}
+.m-sep{height:.5px;background:rgba(255,255,255,0.09);margin:16px 0;}
+.m-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.m-blk{background:rgba(255,255,255,0.045);border-radius:12px;padding:11px;border:.5px solid rgba(255,255,255,0.07);}
+.m-blk-ttl{font-size:8px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;}
+.m-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.m-row:last-child{margin-bottom:0;}
+.m-k{font-size:10px;color:var(--t2);}
+.m-v{font-family:var(--mono);font-size:10px;color:var(--t1);}
+.m-v.g{color:var(--lime);}.m-v.r{color:var(--coral);}
+.m-insight{background:rgba(61,159,212,0.08);border-left:2px solid var(--sky);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:14px;}
+.m-il{font-size:8px;color:var(--sky);letter-spacing:.13em;text-transform:uppercase;margin-bottom:5px;}
+.m-it{font-size:10px;color:var(--t2);line-height:1.65;}
+.m-sug{background:rgba(143,186,46,0.08);border-radius:12px;padding:12px;border:.5px solid rgba(143,186,46,0.2);}
+.m-sl{font-size:8px;color:var(--lime);letter-spacing:.13em;text-transform:uppercase;margin-bottom:6px;}
+.m-st{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:4px;}
+.m-sd{font-family:var(--mono);font-size:9px;color:var(--t3);}
+
+/* ======== DAILY ======== */
+.d-wrap{max-width:600px;margin:0 auto;padding:0 16px;}
+.d-card{background:#fff;border-radius:18px;overflow:hidden;border:.5px solid #dedad2;}
+.d-hd{background:#111318;padding:22px 24px 18px;position:relative;}
+.d-hd::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);}
+.d-tag{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
+.d-ttl{font-family:var(--serif);font-size:22px;color:#fff;margin-bottom:3px;}
+.d-sub{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.05em;}
+.d-hero{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:.5px solid #eeebe2;}
+.d-hi{padding:16px 12px;border-right:.5px solid #eeebe2;text-align:center;}
+.d-hi:last-child{border-right:none;}
+.d-hv{font-family:var(--mono);font-size:19px;font-weight:600;color:#111;line-height:1;display:block;margin-bottom:3px;}
+.d-hu{font-size:9px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:1px;}
+.d-hl{font-size:10px;color:#999;}
+.d-body{padding:20px 24px;}
+.d-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+.d-mod{background:#f7f5f0;border-radius:10px;padding:14px;}
+.d-mt{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#aaa;margin-bottom:10px;font-family:var(--mono);}
+.d-mr{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.d-mr:last-child{margin-bottom:0;}
+.d-mk{font-size:11px;color:#666;}
+.d-mv{font-family:var(--mono);font-size:11px;color:#111;font-weight:500;}
+.d-mv.g{color:#2e7d38;}.d-mv.w{color:#b56c0e;}
+.sect-t{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#aaa;margin-bottom:10px;}
+
+/* 配速图表 */
+.pace-chart{margin-bottom:20px;}
+.pace-bars{display:flex;align-items:flex-end;gap:3px;height:100px;position:relative;margin-bottom:4px;}
+.pace-avg-line{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(201,168,76,0.55);}
+.pace-avg-tag{position:absolute;right:0;font-family:var(--mono);font-size:8px;color:var(--gold);background:#fff;padding:0 3px;}
+.pb-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.pb-val{font-family:var(--mono);font-size:8px;color:#888;white-space:nowrap;}
+.pb-bar{width:100%;border-radius:2px 2px 0 0;min-height:4px;}
+.pb-bar.avg{background:#1a1a1a;}.pb-bar.fast{background:var(--gold);}.pb-bar.slow{background:#f0d0a0;}
+.pb-lbl{font-family:var(--mono);font-size:8px;color:#ccc;}
+.pace-x-axis{display:flex;justify-content:space-between;padding:0 2px;}
+.pace-x-tip{font-size:9px;color:#bbb;}
+
+.d-insight{background:#111318;border-radius:10px;padding:14px 16px;margin-bottom:16px;}
+.d-ih{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.d-idot{width:5px;height:5px;background:var(--gold);border-radius:50%;flex-shrink:0;}
+.d-ilbl{font-family:var(--mono);font-size:8px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;}
+.d-itxt{font-size:11px;color:rgba(255,255,255,.65);line-height:1.7;}
+.d-cmp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.d-ci{text-align:center;padding:10px 8px;background:#f7f5f0;border-radius:9px;}
+.d-cl{font-size:10px;color:#999;margin-bottom:3px;}
+.d-cv{font-family:var(--mono);font-size:12px;color:#111;font-weight:500;}
+.d-cd{font-size:10px;margin-top:2px;}
+.d-cd.p{color:#2e7d38;}.d-cd.n{color:#c03020;}
+
+/* ======== WEEKLY ======== */
+.w-wrap{max-width:600px;margin:0 auto;padding:0 16px;}
+.w-card{background:#fff;border-radius:18px;overflow:hidden;border:.5px solid #dedad2;}
+.w-hd{padding:24px 24px 18px;border-bottom:.5px solid #eee;display:flex;justify-content:space-between;align-items:flex-end;}
+.w-wl{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:#aaa;text-transform:uppercase;margin-bottom:3px;}
+.w-ttl{font-family:var(--serif);font-size:24px;color:#111;}
+.w-dt{font-family:var(--mono);font-size:10px;color:#bbb;}
+.w-body{padding:20px 24px;}
+.w-4grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+.w-kpi{background:#f7f5f0;border-radius:10px;padding:12px 10px;text-align:center;}
+.w-kv{font-family:var(--mono);font-size:18px;font-weight:600;color:#111;line-height:1;margin-bottom:3px;}
+.w-ku{font-size:9px;color:#bbb;display:block;}
+.w-kl{font-size:10px;color:#888;margin-top:2px;}
+
+/* 周趋势sparkline */
+.w-sparks{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+.w-sp{background:#f7f5f0;border-radius:10px;padding:12px;}
+.w-sp-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.w-sp-t{font-size:10px;color:#888;font-family:var(--mono);}
+.w-sp-v{font-family:var(--mono);font-size:13px;color:#111;font-weight:500;}
+.w-sp-box{height:36px;}
+.w-sp-box svg{width:100%;height:100%;overflow:visible;}
+
+/* 周柱状图 — 带数据标签 */
+.w-chart{margin-bottom:20px;}
+.w-chart-t{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#aaa;margin-bottom:10px;}
+.w-bars{display:flex;align-items:flex-end;gap:4px;height:110px;}
+.w-bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.w-bval{font-family:var(--mono);font-size:8px;color:#666;font-weight:500;}
+.w-b{width:100%;border-radius:3px 3px 0 0;min-height:3px;}
+.w-b.run{background:#111;}.w-b.rest{background:#e5e2da;}
+.w-bday{font-family:var(--mono);font-size:8px;color:#bbb;}
+
+.w-risk{background:#fffbf0;border:.5px solid #f0c860;border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;gap:10px;}
+.w-ri{width:24px;height:24px;background:#fef0cc;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.w-rt{font-size:11px;font-weight:600;color:#705000;margin-bottom:2px;}
+.w-rd{font-size:10px;color:#906820;line-height:1.55;}
+.w-coach{background:#111318;border-radius:10px;padding:16px;margin-bottom:18px;}
+.w-cb{font-family:var(--mono);font-size:8px;letter-spacing:.15em;color:var(--lime);text-transform:uppercase;background:rgba(143,186,46,.1);padding:3px 8px;border-radius:100px;border:.5px solid rgba(143,186,46,.25);display:inline-block;margin-bottom:8px;}
+.w-ct{font-size:11px;color:rgba(255,255,255,.62);line-height:1.75;}
+.w-2bot{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.w-dc{background:#f7f5f0;border-radius:10px;padding:12px;}
+.w-dt2{font-family:var(--mono);font-size:9px;color:#aaa;letter-spacing:.1em;margin-bottom:10px;}
+.w-trow{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.w-trow:last-child{margin-bottom:0;}
+.w-tdl{display:flex;align-items:center;gap:5px;font-size:11px;color:#555;}
+.w-dot{width:7px;height:7px;border-radius:50%;}
+.w-tv{font-family:var(--mono);font-size:11px;color:#222;}
+.w-vrow{display:flex;justify-content:space-between;margin-bottom:6px;}
+.w-vrow:last-child{margin-bottom:0;}
+.w-vl{font-size:11px;color:#888;}
+.w-vv{font-family:var(--mono);font-size:11px;}
+.w-vv.b{color:#2e7d38;}.w-vv.r{color:#c03020;}
+
+/* ======== MONTHLY ======== */
+.mo-wrap{max-width:600px;margin:0 auto;padding:0 16px;}
+.mo-card{background:#fff;border-radius:18px;overflow:hidden;border:.5px solid #dedad2;}
+.mo-hero{background:#111318;padding:26px 24px 22px;position:relative;overflow:hidden;}
+.mo-ha{position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(201,168,76,.1) 0%,transparent 70%);}
+.mo-ml{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
+.mo-mt{font-family:var(--serif);font-size:28px;color:#fff;margin-bottom:5px;}
+.mo-ms{font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;}
+.mo-body{padding:22px 24px;}
+.mo-5g{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:18px;}
+.mo-k{background:#f7f5f0;border-radius:9px;padding:11px 8px;text-align:center;}
+.mo-kv{font-family:var(--mono);font-size:15px;font-weight:600;color:#111;line-height:1;margin-bottom:2px;}
+.mo-ku{font-size:8px;color:#bbb;display:block;margin-bottom:2px;}
+.mo-kl{font-size:9px;color:#888;}
+
+/* 月度每日图表 — 带标注 */
+.mo-chart{margin-bottom:18px;}
+.mo-ct{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#aaa;margin-bottom:8px;}
+.mo-bars{display:flex;align-items:flex-end;gap:1.5px;height:72px;position:relative;}
+.mo-b{flex:1;border-radius:1px 1px 0 0;min-height:2px;position:relative;cursor:default;}
+.mo-b.run{background:#111;}.mo-b.rest{background:#e5e2da;}.mo-b.peak{background:var(--gold);}
+.mo-peak-label{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7px;color:var(--gold);white-space:nowrap;}
+.mo-x-axis{display:flex;justify-content:space-between;margin-top:4px;}
+.mo-x-lbl{font-family:var(--mono);font-size:8px;color:#ccc;}
+
+.mo-2b{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+.mo-zc{background:#f7f5f0;border-radius:10px;padding:12px;}
+.mo-zt{font-family:var(--mono);font-size:9px;color:#aaa;letter-spacing:.1em;margin-bottom:10px;}
+.mo-zrow{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.mo-zrow:last-child{margin-bottom:0;}
+.mo-zl{font-size:10px;color:#888;width:16px;}
+.mo-zbg{flex:1;height:5px;background:#e5e2da;border-radius:3px;overflow:hidden;}
+.mo-zf{height:100%;border-radius:3px;}
+.mo-zp{font-family:var(--mono);font-size:9px;color:#666;width:26px;text-align:right;}
+
+.mo-pb{background:#f7f5f0;border-radius:10px;padding:12px;}
+.mo-pbt{font-family:var(--mono);font-size:9px;color:#aaa;letter-spacing:.1em;margin-bottom:10px;}
+.mo-pbr{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.mo-pbr:last-child{margin-bottom:0;}
+.mo-pbd{font-size:11px;color:#666;}
+.mo-pbv{font-family:var(--mono);font-size:11px;color:#111;font-weight:500;}
+.mo-pbb{font-family:var(--mono);font-size:8px;padding:2px 5px;border-radius:4px;background:rgba(201,168,76,.15);color:#7a5800;}
+
+.mo-hg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;}
+.mo-hi{background:#f7f5f0;border-radius:9px;padding:11px;}
+.mo-hl{font-size:9px;color:#aaa;margin-bottom:3px;font-family:var(--mono);}
+.mo-hv{font-family:var(--mono);font-size:15px;color:#111;font-weight:500;}
+.mo-hvs{font-size:9px;margin-top:2px;}
+.mo-hvs.u{color:#2e7d38;}.mo-hvs.d{color:#c03020;}
+
+.mo-sum{background:#111318;border-radius:10px;padding:16px;margin-bottom:14px;}
+.mo-sb{font-family:var(--mono);font-size:8px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;background:rgba(201,168,76,.1);padding:3px 8px;border-radius:100px;border:.5px solid rgba(201,168,76,.25);display:inline-block;margin-bottom:9px;}
+.mo-li{display:flex;gap:7px;align-items:flex-start;margin-bottom:7px;}
+.mo-li:last-child{margin-bottom:0;}
+.mo-ld{width:4px;height:4px;background:var(--gold);border-radius:50%;margin-top:7px;flex-shrink:0;}
+.mo-lt{font-size:11px;color:rgba(255,255,255,.62);line-height:1.6;}
+
+.mo-tg{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.mo-ti{background:#f7f5f0;border-radius:9px;padding:11px;text-align:center;}
+.mo-tl{font-size:9px;color:#aaa;margin-bottom:3px;}
+.mo-tv{font-family:var(--mono);font-size:13px;color:#111;font-weight:500;}
+
+/* ======== RACE ======== */
+.r-wrap{max-width:600px;margin:0 auto;padding:0 16px;}
+.r-card{background:#fff;border-radius:18px;overflow:hidden;border:.5px solid #dedad2;position:relative;}
+.r-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),#e8c76a,var(--gold));}
+.r-hero{padding:28px 24px 20px;position:relative;}
+.r-tag{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase;margin-bottom:6px;}
+.r-name{font-family:var(--serif);font-size:24px;color:#111;line-height:1.1;margin-bottom:4px;}
+.r-sub{font-family:var(--mono);font-size:11px;color:#999;letter-spacing:.05em;margin-bottom:20px;}
+.r-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:.5px solid #eeebe2;border-bottom:.5px solid #eeebe2;}
+.r-st{text-align:center;padding:16px 8px;border-right:.5px solid #eeebe2;}
+.r-st:last-child{border-right:none;}
+.r-sv{font-family:var(--mono);font-size:20px;font-weight:600;color:#111;display:block;line-height:1;margin-bottom:3px;}
+.r-su{font-size:10px;color:#999;letter-spacing:.08em;text-transform:uppercase;display:block;}
+
+.r-body{padding:20px 24px 24px;}
+.r-st2{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#aaa;text-transform:uppercase;margin:16px 0 10px;}
+.r-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+.r-sc{background:#f7f5f0;border-radius:10px;padding:14px;}
+.r-sl{font-size:11px;color:#888;margin-bottom:4px;font-family:var(--mono);}
+.r-sv2{font-family:var(--mono);font-size:22px;color:#111;font-weight:600;}
+.r-ss{font-size:11px;color:#999;margin-top:2px;}
+.r-sbadge{display:inline-block;font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:100px;margin-top:6px;letter-spacing:.05em;}
+.r-sbadge.p{background:rgba(143,186,46,.12);color:#5a8a1a;border:.5px solid rgba(143,186,46,.3);}
+.r-sbadge.n{background:rgba(224,90,58,.1);color:#c04020;border:.5px solid rgba(224,90,58,.2);}
+
+/* 赛事配速图 */
+.r-pace-chart{margin-bottom:4px;}
+.r-pbars{display:flex;align-items:flex-end;gap:2px;height:100px;position:relative;}
+.r-avg-l{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(201,168,76,.55);}
+.r-avg-tag{position:absolute;right:0;font-family:var(--mono);font-size:9px;color:var(--gold);background:#fff;padding:0 3px;}
+.r-pcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.r-ptop{font-family:var(--mono);font-size:9px;color:#888;line-height:1.2;text-align:center;}
+.r-pb{width:100%;border-radius:2px 2px 0 0;min-height:3px;}
+.r-pb.n{background:#ccc;}.r-pb.h{background:var(--gold);}.r-pb.s{background:#e8a0a0;}
+.r-plbl{font-family:var(--mono);font-size:9px;color:#ccc;}
+
+.r-intel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.r-ic{background:#f7f5f0;border:.5px solid #eeebe2;border-radius:10px;padding:14px;}
+.r-in{font-size:10px;color:#aaa;font-family:var(--mono);letter-spacing:.08em;margin-bottom:5px;text-transform:uppercase;}
+.r-is{display:flex;align-items:baseline;gap:4px;margin-bottom:5px;}
+.r-in2{font-family:var(--mono);font-size:18px;color:#111;font-weight:600;}
+.r-im{font-family:var(--mono);font-size:11px;color:#888;}
+.r-ib{height:4px;background:#eee;border-radius:2px;overflow:hidden;}
+.r-if{height:100%;background:var(--gold);border-radius:2px;}
+
+.r-narr{background:#f7f5f0;border:.5px solid #eeebe2;border-radius:10px;padding:18px;}
+.r-nl{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}
+.r-nt{font-family:var(--serif);font-style:italic;font-size:14px;color:#444;line-height:1.8;}
+.r-nq{font-family:var(--serif);font-size:12px;color:#999;margin-top:12px;font-style:italic;border-top:.5px solid #eeebe2;padding-top:10px;}
+</style>
+</head>
+<body>
+
+<h2 class="sr-only">跑步训练报表展示：晨间报告、单次训练复盘、周报、月报、赛事报告五种原型</h2>
+
+<div class="app">
+<div class="tabs">
+  <button class="tb on" onclick="sw('morning',this)">☀ 晨间报告</button>
+  <button class="tb" onclick="sw('daily',this)">⬡ 训练复盘</button>
+  <button class="tb" onclick="sw('weekly',this)">◈ 周报</button>
+  <button class="tb" onclick="sw('monthly',this)">◉ 月报</button>
+  <button class="tb" onclick="sw('race',this)">▲ 赛事报告</button>
+</div>
+
+<!-- 晨间报告 -->
+<div class="pane on" id="p-morning">
+<div class="m-wrap"><div class="phone">
+  <div class="notch"></div>
+  <div class="m-ts">{{ morning.ts }}</div>
+  <div class="m-ring-wrap">
+    <div class="m-ring-box">
+      <svg viewBox="0 0 110 110" width="110" height="110">
+        <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="7"/>
+        <circle cx="55" cy="55" r="46" fill="none" stroke="#3d9fd4" stroke-width="7"
+          stroke-dasharray="289.0" stroke-dashoffset="{{ morning.ring_offset }}"
+          stroke-linecap="round" transform="rotate(-90 55 55)"/>
+      </svg>
+      <div class="m-ring-inner">
+        <span class="m-big">{{ morning.score }}</span>
+        <span class="m-unit">准备度</span>
+      </div>
+    </div>
+    <div class="m-status-row">
+      <div class="m-status-sub">综合状态评分</div>
+      <div class="m-status-val">{{ morning.status }}</div>
+    </div>
+  </div>
+  <div class="m-sep"></div>
+  <div class="m-2col">
+    <div class="m-blk">
+      <div class="m-blk-ttl">恢复状态</div>
+      <div class="m-row"><span class="m-k">HRV 今日</span><span class="m-v {{ morning.hrv_class }}">{{ morning.hrv_today }}ms {{ morning.hrv_arrow }}</span></div>
+      <div class="m-row"><span class="m-k">7日均值</span><span class="m-v">{{ morning.hrv_baseline }}ms</span></div>
+      <div class="m-row"><span class="m-k">静息心率</span><span class="m-v">{{ morning.rhr }} bpm</span></div>
+      <div class="m-row"><span class="m-k">训练负荷</span><span class="m-v {{ morning.load_class }}">{{ morning.load_status }}</span></div>
+    </div>
+    <div class="m-blk">
+      <div class="m-blk-ttl">睡眠</div>
+      <div class="m-row"><span class="m-k">总时长</span><span class="m-v">{{ morning.sleep_duration }}</span></div>
+      <div class="m-row"><span class="m-k">深睡占比</span><span class="m-v {{ morning.deep_class }}">{{ morning.deep_pct }}% {{ morning.deep_arrow }}</span></div>
+      <div class="m-row"><span class="m-k">入睡时间</span><span class="m-v">{{ morning.bedtime }}</span></div>
+      <div class="m-row"><span class="m-k">睡眠评分</span><span class="m-v {{ morning.sleep_class }}">{{ morning.sleep_score }}分</span></div>
+    </div>
+  </div>
+  <div class="m-insight">
+    <div class="m-il">AI 洞察</div>
+    <div class="m-it">{{ morning.insight }}</div>
+  </div>
+  <div class="m-sug">
+    <div class="m-sl">今日建议</div>
+    <div class="m-st">{{ morning.sug_type }}</div>
+    <div class="m-sd">{{ morning.sug_detail }}</div>
+  </div>
+</div></div>
+</div>
+
+<!-- 训练复盘 -->
+<div class="pane" id="p-daily">
+<div class="d-wrap"><div class="d-card">
+  <div class="d-hd">
+    <div class="d-tag">训练复盘 · {{ daily.type }}</div>
+    <div class="d-ttl">{{ daily.name }}</div>
+    <div class="d-sub">{{ daily.subtitle }}</div>
+  </div>
+  <div class="d-hero">
+    <div class="d-hi"><span class="d-hv">{{ daily.distance }}</span><span class="d-hu">公里</span><span class="d-hl">距离</span></div>
+    <div class="d-hi"><span class="d-hv">{{ daily.duration }}</span><span class="d-hu">时:分</span><span class="d-hl">总时长</span></div>
+    <div class="d-hi"><span class="d-hv">{{ daily.pace }}</span><span class="d-hu">/公里</span><span class="d-hl">平均配速</span></div>
+    <div class="d-hi"><span class="d-hv">+{{ daily.elevation }}</span><span class="d-hu">米</span><span class="d-hl">累计爬升</span></div>
+  </div>
+  <div class="d-body">
+    <div class="d-2col">
+      <div class="d-mod">
+        <div class="d-mt">恢复指标</div>
+        <div class="d-mr"><span class="d-mk">HRV 变化</span><span class="d-mv {{ daily.hrv_class }}">{{ daily.hrv_change }}</span></div>
+        <div class="d-mr"><span class="d-mk">训练负荷</span><span class="d-mv">{{ daily.training_load }}</span></div>
+        <div class="d-mr"><span class="d-mk">恢复评分</span><span class="d-mv {{ daily.recovery_class }}">{{ daily.recovery_score }}</span></div>
+      </div>
+      <div class="d-mod">
+        <div class="d-mt">效率指标</div>
+        <div class="d-mr"><span class="d-mk">心率漂移</span><span class="d-mv {{ daily.drift_class }}">{{ daily.hr_drift }}</span></div>
+        <div class="d-mr"><span class="d-mk">步频</span><span class="d-mv">{{ daily.cadence }} spm</span></div>
+        <div class="d-mr"><span class="d-mk">跑步效率</span><span class="d-mv {{ daily.eff_class }}">{{ daily.running_eff }}</span></div>
+      </div>
+    </div>
+    <div class="pace-chart">
+      <div class="sect-t">逐公里配速</div>
+      <div class="pace-bars" id="pbars">
+        <div class="pace-avg-line" id="pavg-line"></div>
+        <div class="pace-avg-tag" id="pavg-tag"></div>
+      </div>
+      <div class="pace-x-axis"><span class="pace-x-tip">1km</span><span class="pace-x-tip">{{ daily.mid_km }}km</span><span class="pace-x-tip">{{ daily.total_km }}km</span></div>
+    </div>
+    <div class="d-insight">
+      <div class="d-ih"><div class="d-idot"></div><div class="d-ilbl">AI 洞察</div></div>
+      <div class="d-itxt">{{ daily.insight }}</div>
+    </div>
+    <div class="sect-t" style="margin-bottom:10px;">与同类历史训练对比</div>
+    <div class="d-cmp">
+      <div class="d-ci"><div class="d-cl">平均配速</div><div class="d-cv">{{ daily.compare_pace }}</div><div class="d-cd {{ daily.compare_pace_cls }}">{{ daily.compare_pace_diff }}</div></div>
+      <div class="d-ci"><div class="d-cl">心率漂移</div><div class="d-cv">{{ daily.compare_drift }}</div><div class="d-cd {{ daily.compare_drift_cls }}">{{ daily.compare_drift_diff }}</div></div>
+      <div class="d-ci"><div class="d-cl">跑步效率</div><div class="d-cv">{{ daily.compare_eff }}</div><div class="d-cd {{ daily.compare_eff_cls }}">{{ daily.compare_eff_diff }}</div></div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<!-- 周报 -->
+<div class="pane" id="p-weekly">
+<div class="w-wrap"><div class="w-card">
+  <div class="w-hd">
+    <div><div class="w-wl">周报 · 第{{ weekly.week_num }}周</div><div class="w-ttl">{{ weekly.title }}</div></div>
+    <div class="w-dt">{{ weekly.date_range }}</div>
+  </div>
+  <div class="w-body">
+    <div class="w-4grid">
+      <div class="w-kpi"><div class="w-kv">{{ weekly.total_km }}<span class="w-ku">公里</span></div><div class="w-kl">总跑量</div></div>
+      <div class="w-kpi"><div class="w-kv">{{ weekly.total_duration }}<span class="w-ku">小时</span></div><div class="w-kl">总时长</div></div>
+      <div class="w-kpi"><div class="w-kv">{{ weekly.training_days }}<span class="w-ku">次</span></div><div class="w-kl">训练天数</div></div>
+      <div class="w-kpi"><div class="w-kv">{{ weekly.calories }}<span class="w-ku">千卡</span></div><div class="w-kl">消耗热量</div></div>
+    </div>
+    <div class="w-sparks">
+      <div class="w-sp">
+        <div class="w-sp-hd"><span class="w-sp-t">HRV 7日趋势</span><span class="w-sp-v">{{ weekly.hrv_now }}ms {{ weekly.hrv_arrow }}</span></div>
+        <div class="w-sp-box"><svg viewBox="0 0 200 36" preserveAspectRatio="none">
+          <polyline points="{{ weekly.hrv_sparkline }}" fill="none" stroke="#3d9fd4" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="200" cy="{{ weekly.hrv_end_y }}" r="3" fill="#3d9fd4"/>
+          <text x="2" y="34" font-size="8" fill="#aaa" font-family="monospace">{{ weekly.hrv_start }}</text>
+          <text x="170" y="34" font-size="8" fill="#aaa" font-family="monospace">{{ weekly.hrv_now }}</text>
+        </svg></div>
+      </div>
+      <div class="w-sp">
+        <div class="w-sp-hd"><span class="w-sp-t">跑步效率趋势</span><span class="w-sp-v">{{ weekly.eff_now }} {{ weekly.eff_arrow }}</span></div>
+        <div class="w-sp-box"><svg viewBox="0 0 200 36" preserveAspectRatio="none">
+          <polyline points="{{ weekly.eff_sparkline }}" fill="none" stroke="#8fba2e" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="200" cy="{{ weekly.eff_end_y }}" r="3" fill="#8fba2e"/>
+          <text x="2" y="34" font-size="8" fill="#aaa" font-family="monospace">{{ weekly.eff_start }}</text>
+          <text x="160" y="34" font-size="8" fill="#aaa" font-family="monospace">{{ weekly.eff_now }}</text>
+        </svg></div>
+      </div>
+    </div>
+    <div class="w-chart">
+      <div class="w-chart-t">每日跑量（公里）</div>
+      <div class="w-bars" id="wbars"></div>
+    </div>
+    {% if weekly.risk_alert %}
+    <div class="w-risk">
+      <div class="w-ri">⚠</div>
+      <div><div class="w-rt">风险提示 · {{ weekly.risk_title }}</div><div class="w-rd">{{ weekly.risk_detail }}</div></div>
+    </div>
+    {% endif %}
+    <div class="w-coach">
+      <div class="w-cb">AI 教练总结</div>
+      <div class="w-ct">{{ weekly.coach_summary }}</div>
+    </div>
+    <div class="w-2bot">
+      <div class="w-dc">
+        <div class="w-dt2">训练类型分布</div>
+        {% for t in weekly.training_types %}
+        <div class="w-trow"><div class="w-tdl"><div class="w-dot" style="background:{{ t.color }};"></div>{{ t.name }}</div><span class="w-tv">{{ t.pct }}%</span></div>
+        {% endfor %}
+      </div>
+      <div class="w-dc">
+        <div class="w-dt2">与上周对比</div>
+        <div class="w-vrow"><span class="w-vl">总跑量</span><span class="w-vv {{ weekly.vs_distance_cls }}">{{ weekly.vs_distance }}</span></div>
+        <div class="w-vrow"><span class="w-vl">平均配速</span><span class="w-vv {{ weekly.vs_pace_cls }}">{{ weekly.vs_pace }}</span></div>
+        <div class="w-vrow"><span class="w-vl">平均心率</span><span class="w-vv {{ weekly.vs_hr_cls }}">{{ weekly.vs_hr }}</span></div>
+        <div class="w-vrow"><span class="w-vl">训练次数</span><span class="w-vv">{{ weekly.vs_count }}</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<!-- 月报 -->
+<div class="pane" id="p-monthly">
+<div class="mo-wrap"><div class="mo-card">
+  <div class="mo-hero">
+    <div class="mo-ha"></div>
+    <div class="mo-ml">月报 · {{ monthly.month_label }}</div>
+    <div class="mo-mt">{{ monthly.title }}</div>
+    <div class="mo-ms">{{ monthly.subtitle }}</div>
+  </div>
+  <div class="mo-body">
+    <div class="mo-5g">
+      <div class="mo-k"><div class="mo-kv">{{ monthly.total_km }}<span class="mo-ku">km</span></div><div class="mo-kl">月跑量</div></div>
+      <div class="mo-k"><div class="mo-kv">{{ monthly.total_duration }}<span class="mo-ku">{{ monthly.duration_unit }}</span></div><div class="mo-kl">运动时间</div></div>
+      <div class="mo-k"><div class="mo-kv">+{{ monthly.elevation }}<span class="mo-ku">m</span></div><div class="mo-kl">累计爬升</div></div>
+      <div class="mo-k"><div class="mo-kv">{{ monthly.calories }}<span class="mo-ku">kcal</span></div><div class="mo-kl">消耗热量</div></div>
+      <div class="mo-k"><div class="mo-kv">{{ monthly.training_days }}<span class="mo-ku">天</span></div><div class="mo-kl">运动天数</div></div>
+    </div>
+    <div class="mo-chart">
+      <div class="mo-ct">每日跑量 · {{ monthly.month_short }}全览</div>
+      <div class="mo-bars" id="mobars"></div>
+      <div class="mo-x-axis"><span class="mo-x-lbl">1日</span><span class="mo-x-lbl">10日</span><span class="mo-x-lbl">20日</span><span class="mo-x-lbl">{{ monthly.last_day }}日</span></div>
+    </div>
+    <div class="mo-2b">
+      <div class="mo-zc">
+        <div class="mo-zt">心率区间分布（Z1–Z5）</div>
+        {% for z in monthly.hr_zones %}
+        <div class="mo-zrow"><div class="mo-zl">{{ z.label }}</div><div class="mo-zbg"><div class="mo-zf" style="width:{{ z.pct }}%;background:{{ z.color }};"></div></div><div class="mo-zp">{{ z.pct }}%</div></div>
+        {% endfor %}
+      </div>
+      <div class="mo-pb">
+        <div class="mo-pbt">个人最佳成绩（PB）</div>
+        {% for pb in monthly.pb_records %}
+        <div class="mo-pbr"><span class="mo-pbd">{{ pb.dist }}</span><span class="mo-pbv">{{ pb.time }}</span><span class="mo-pbb" style="{{ pb.badge_style }}">{{ pb.badge }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="mo-hg">
+      <div class="mo-hi"><div class="mo-hl">月均 HRV</div><div class="mo-hv">{{ monthly.avg_hrv }}ms</div><div class="mo-hvs {{ monthly.hrv_vs_cls }}">{{ monthly.hrv_vs }}</div></div>
+      <div class="mo-hi"><div class="mo-hl">月均静息心率</div><div class="mo-hv">{{ monthly.avg_rhr }}bpm</div><div class="mo-hvs {{ monthly.rhr_vs_cls }}">{{ monthly.rhr_vs }}</div></div>
+      <div class="mo-hi"><div class="mo-hl">月均睡眠</div><div class="mo-hv">{{ monthly.avg_sleep }}</div><div class="mo-hvs {{ monthly.sleep_vs_cls }}">{{ monthly.sleep_vs }}</div></div>
+    </div>
+    <div class="mo-sum">
+      <div class="mo-sb">月度总结</div>
+      {% for item in monthly.summary_items %}
+      <div class="mo-li"><div class="mo-ld"></div><div class="mo-lt">{{ item }}</div></div>
+      {% endfor %}
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;color:#aaa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;">下月训练目标</div>
+    <div class="mo-tg">
+      {% for g in monthly.goals %}
+      <div class="mo-ti"><div class="mo-tl">{{ g.label }}</div><div class="mo-tv">{{ g.value }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+</div></div>
+</div>
+
+<!-- 赛事报告 -->
+<div class="pane" id="p-race">
+{% if race._no_race %}
+<div class="r-wrap"><div class="r-card">
+  <div class="r-hero" style="text-align:center;padding:48px 24px;">
+    <div class="r-tag">赛事报告</div>
+    <div class="r-name" style="color:#999;">{{ race.name }}</div>
+    <div class="r-sub" style="margin-bottom:0;">{{ race.narrative }}</div>
+  </div>
+</div></div>
+{% else %}
+<div class="r-wrap"><div class="r-card">
+  <div class="r-hero">
+    <div class="r-tag">赛事报告 · {{ race.race_type }}</div>
+    <div class="r-name">{{ race.name }}</div>
+    <div class="r-sub">{{ race.subtitle }}</div>
+    <div class="r-stats">
+      <div class="r-st"><span class="r-sv">{{ race.finish_time }}</span><span class="r-su">完赛时间</span></div>
+      <div class="r-st"><span class="r-sv">{{ race.distance }}</span><span class="r-su">公里</span></div>
+      <div class="r-st"><span class="r-sv">{{ race.avg_pace }}</span><span class="r-su">平均配速</span></div>
+      <div class="r-st"><span class="r-sv">{{ race.avg_hr }}</span><span class="r-su">平均心率</span></div>
+    </div>
+  </div>
+  <div class="r-body">
+    <div class="r-st2">分程分析</div>
+    <div class="r-split">
+      <div class="r-sc"><div class="r-sl">前半程 · {{ race.first_half_km }}km</div><div class="r-sv2">{{ race.first_half_time }}</div><div class="r-ss">{{ race.first_half_pace }}/km 均速</div><div class="r-sbadge p">{{ race.first_half_badge }}</div></div>
+      <div class="r-sc"><div class="r-sl">后半程 · {{ race.second_half_km }}km</div><div class="r-sv2">{{ race.second_half_time }}</div><div class="r-ss">{{ race.second_half_pace }}/km 均速</div><div class="r-sbadge n">{{ race.second_half_badge }}</div></div>
+    </div>
+    <div class="r-st2">逐公里配速</div>
+    <div class="r-pace-chart">
+      <div class="r-pbars" id="rbars">
+        <div class="r-avg-l" id="ravg-l"></div>
+        <div class="r-avg-tag" id="ravg-tag"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="font-family:var(--mono);font-size:10px;color:#bbb;">1km</span>
+      <span style="font-family:var(--mono);font-size:10px;color:#bbb;">{{ race.mid_km }}km</span>
+      <span style="font-family:var(--mono);font-size:10px;color:#bbb;">{{ race.total_km }}km</span>
+    </div>
+    <div style="display:flex;gap:14px;margin-bottom:4px;flex-wrap:wrap;">
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;">
+        <span style="width:10px;height:10px;border-radius:2px;background:var(--gold);display:inline-block;"></span>最快公里
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;">
+        <span style="width:10px;height:10px;border-radius:2px;background:#e8a0a0;display:inline-block;"></span>最慢公里
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;">
+        <span style="width:10px;height:10px;border-radius:2px;background:#ccc;display:inline-block;"></span>正常配速
+      </span>
+    </div>
+    <div class="r-st2">四维竞技分析</div>
+    <div class="r-intel">
+      {% for dim in race.dimensions %}
+      <div class="r-ic"><div class="r-in">{{ dim.name }}</div><div class="r-is"><span class="r-in2">{{ dim.score }}</span><span class="r-im">/100</span></div><div class="r-ib"><div class="r-if" style="width:{{ dim.score }}%;"></div></div></div>
+      {% endfor %}
+    </div>
+    <div class="r-st2">完赛叙事</div>
+    <div class="r-narr">
+      <div class="r-nl">赛事故事</div>
+      <div class="r-nt">{{ race.narrative }}</div>
+      <div class="r-nq">{{ race.quote }}</div>
+    </div>
+  </div>
+</div></div>
+{% endif %}
+</div>
+</div>
+
+<script>
+function sw(name, btn) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tb').forEach(b => b.classList.remove('on'));
+  document.getElementById('p-' + name).classList.add('on');
+  btn.classList.add('on');
+}
+
+// 训练复盘配速图
+(function buildDaily() {
+  const data = {{ daily.pace_data|safe }};
+  const avg = {{ daily.pace_avg_sec }};
+  const minS = Math.min(...data.map(d=>d.sec));
+  const maxS = Math.max(...data.map(d=>d.sec));
+  const chartH = 100;
+  const container = document.getElementById('pbars');
+  if (!container) return;
+  const avgPct = (maxS - avg) / (maxS - minS);
+  const avgTop = (1 - avgPct) * (chartH - 20);
+  document.getElementById('pavg-line').style.top = avgTop + 'px';
+  document.getElementById('pavg-tag').style.top = (avgTop - 12) + 'px';
+  document.getElementById('pavg-tag').textContent = '均速 {{ daily.pace | replace("\'", "\\'") }}';
+  data.forEach(d => {
+    const pct = (maxS - d.sec) / (maxS - minS);
+    const barH = 10 + pct * 72;
+    const isFast = d.sec < avg - 4;
+    const isSlow = d.sec > avg + 6;
+    const m = Math.floor(d.sec/60), s = d.sec%60;
+    const label = m + "'" + String(s).padStart(2,'0') + '"';
+    const col = document.createElement('div');
+    col.className = 'pb-col';
+    col.innerHTML = `<div class="pb-val">${label}</div><div class="pb-bar ${isFast?'fast':isSlow?'slow':'avg'}" style="height:${barH}px;"></div><div class="pb-lbl">${d.km}</div>`;
+    container.appendChild(col);
+  });
+})();
+
+// 周报柱状图
+(function buildWeekly() {
+  const days = {{ weekly.daily_breakdown|safe }};
+  const maxKm = Math.max(...days.map(d=>d.km));
+  const maxH = 80;
+  const c = document.getElementById('wbars');
+  if (!c) return;
+  days.forEach(day => {
+    const col = document.createElement('div');
+    col.className = 'w-bcol';
+    const barH = day.km === 0 ? 4 : (day.km / maxKm) * maxH;
+    const valTxt = day.km === 0 ? '休息' : day.km + 'km';
+    col.innerHTML = `<div class="w-bval">${valTxt}</div><div class="w-b ${day.km===0?'rest':'run'}" style="height:${barH}px;"></div><div class="w-bday">${day.label}</div>`;
+    c.appendChild(col);
+  });
+})();
+
+// 月报每日图
+(function buildMonthly() {
+  const vals = {{ monthly.daily_distances|safe }};
+  const maxV = Math.max(...vals);
+  const maxH = 72;
+  const c = document.getElementById('mobars');
+  if (!c) return;
+  vals.forEach((v, i) => {
+    const bar = document.createElement('div');
+    const isPeak = v === maxV && v > 0;
+    bar.className = 'mo-b ' + (v===0 ? 'rest' : isPeak ? 'peak' : 'run');
+    bar.style.height = (v===0 ? 3 : (v/maxV)*maxH) + 'px';
+    bar.title = (i+1) + '日: ' + (v>0 ? v+'km' : '休息');
+    if (isPeak) {
+      const lbl = document.createElement('div');
+      lbl.className = 'mo-peak-label';
+      lbl.textContent = v + 'km';
+      bar.appendChild(lbl);
+    }
+    c.appendChild(bar);
+  });
+})();
+
+// 赛事配速图
+(function buildRace() {
+  const paces = {{ race.pace_data|safe }};
+  const avg = {{ race.pace_avg_sec }};
+  const minS = Math.min(...paces.map(p=>p.s));
+  const maxS = Math.max(...paces.map(p=>p.s));
+  const chartH = 90;
+  const c = document.getElementById('rbars');
+  if (!c) return;
+  const avgPct = (maxS - avg) / (maxS - minS);
+  const avgTop = (1 - avgPct) * (chartH - 14);
+  document.getElementById('ravg-l').style.top = avgTop + 'px';
+  document.getElementById('ravg-tag').style.top = (avgTop - 11) + 'px';
+  document.getElementById('ravg-tag').textContent = '均速 {{ race.avg_pace | replace("\'", "\\'") }}';
+  paces.forEach(d => {
+    const pct = (maxS - d.s) / (maxS - minS);
+    const barH = 8 + pct * 72;
+    const isFast = d.s === minS;
+    const isSlow = d.s === maxS;
+    const m = Math.floor(d.s/60), s = d.s%60;
+    const lbl = m + "'" + String(s).padStart(2,'0') + '"';
+    const col = document.createElement('div');
+    col.className = 'r-pcol';
+    col.innerHTML = `<div class="r-ptop">${lbl}</div><div class="r-pb ${isFast?'h':isSlow?'s':'n'}" style="height:${barH}px;"></div><div class="r-plbl">${d.km}</div>`;
+    c.appendChild(col);
+  });
+})();
+</script>
+</body>
+</html>

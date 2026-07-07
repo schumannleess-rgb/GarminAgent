@@ -121,10 +121,10 @@ class GarminClient:
     # Training & Fitness APIs
     # ==========================================
 
-    def get_hill_score(self) -> Dict:
-        """Get hill score (climbing ability)"""
+    def get_hill_score(self, activity_id: int) -> Dict:
+        """Get hill score for an activity"""
         self._ensure_connected()
-        return self._client.get_hill_score()
+        return self._client.get_hill_score(activity_id)
 
     def get_fitnessage_data(self) -> Dict:
         """Get fitness age data"""
@@ -169,39 +169,6 @@ class GarminClient:
         if date_str is None:
             date_str = date.today().strftime("%Y-%m-%d")
         return self._client.get_sleep_data(date_str)
-
-    # ==========================================
-    # Activity Details APIs
-    # ==========================================
-
-    def get_activity_weather(self, activity_id: int) -> Dict:
-        """Get weather data for an activity"""
-        self._ensure_connected()
-        return self._client.get_activity_weather(activity_id)
-
-    def get_hill_score(self, activity_id: int) -> Dict:
-        """Get hill score for an activity"""
-        self._ensure_connected()
-        return self._client.get_hill_score(activity_id)
-
-    # ==========================================
-    # Health & Training APIs
-    # ==========================================
-
-    def get_fitnessage_data(self) -> Dict:
-        """Get fitness age data"""
-        self._ensure_connected()
-        return self._client.get_fitnessage_data()
-
-    def get_race_predictions(self) -> Dict:
-        """Get race predictions"""
-        self._ensure_connected()
-        return self._client.get_race_predictions()
-
-    def get_endurance_score(self) -> Dict:
-        """Get endurance score"""
-        self._ensure_connected()
-        return self._client.get_endurance_score()
 
     # ==========================================
     # Convenience Methods
@@ -273,16 +240,6 @@ class GarminClient:
         if date_str is None:
             date_str = date.today().strftime("%Y-%m-%d")
         return self._client.get_activities_fordate(date_str)
-
-    def get_activity_split_summaries(self, activity_id: int) -> Dict:
-        """Get activity split summaries"""
-        self._ensure_connected()
-        return self._client.get_activity_split_summaries(activity_id)
-
-    def get_activity_details(self, activity_id: int) -> Dict:
-        """Get second-by-second activity data (finest granularity)"""
-        self._ensure_connected()
-        return self._client.get_activity_details(activity_id)
 
     def get_activity_power_in_timezones(self, activity_id: int) -> Dict:
         """Get power distribution in time zones for an activity"""

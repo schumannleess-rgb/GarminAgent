@@ -1,11 +1,14 @@
-# Garmin Agent - LangChain Based
+# Garmin Agent - Dependencies
 
 # Garmin API
 garminconnect>=0.2.0
 python-dotenv>=1.0.0
 
-# LangChain
-langchain>=0.2.0
-langchain-openai>=0.1.0
+# LangChain (Anthropic-compatible LLM)
 langchain-anthropic>=0.1.0
 langchain-community>=0.2.0
+langchain-core>=0.2.0
+
+# Optional: langchain-classic (for AgentExecutor + create_tool_calling_agent)
+# Only needed for the legacy LangChain Agent (garmin-agent/outer version)
+# langchain-classic>=0.1.0

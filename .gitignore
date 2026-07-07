@@ -29,6 +29,9 @@ ENV/
 env/
 .venv/
 
+# 本地依赖库（不应当提交）
+garminconnect/
+
 # IDE
 .vscode/
 .idea/
@@ -39,8 +42,19 @@ memory/
 # 临时文件/备份
 *.bak
 .omc/
+.omc-state/
 feedback/
+backups/
+GarminAgent - */
+GarminAgent-backup-*/
+
+# 测试缓存
+.pytest_cache/
 
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 报表输出文件（运行时生成）
+scripts/report/output/
+report_output/
