@@ -37,11 +37,20 @@ cp .env.example .env
 # .env 内容
 
 # === LLM API 配置 ===
-# 智谱 GLM API Key: 到智谱开放平台 https://open.bigmodel.cn 注册获取
-# 支持智谱、OpenAI、Anthropic 等任何兼容 API 的服务商
-ZHIPU_API_KEY=your_api_key_here
-ZHIPU_BASE_URL=https://open.bigmodel.cn/api/anthropic
-ZHIPU_MODEL=glm-4.7
+# 两种命名方式都支持（选一种即可）：
+# 方式1：ANTHROPIC_* （适合 StepFun 等 Anthropic 兼容 API）
+ANTHROPIC_AUTH_TOKEN=your_api_key_here
+ANTHROPIC_BASE_URL=https://api.stepfun.com/step_plan
+ANTHROPIC_DEFAULT_FABLE_MODEL=step-3.7-flash
+#
+# 方式2：ZHIPU_* （智谱 GLM 等）
+# ZHIPU_API_KEY=your_api_key_here
+# ZHIPU_BASE_URL=https://open.bigmodel.cn/api/anthropic
+# ZHIPU_MODEL=glm-4.7
+#
+# 获取 API Key:
+# - 智谱 GLM: https://open.bigmodel.cn 注册获取
+# - StepFun: https://platform.stepfun.com
 
 # === Garmin 账号 ===
 # 首次登录需要账号密码，之后 TOKEN 自动保存到 ./tokens/

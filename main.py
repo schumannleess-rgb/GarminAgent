@@ -51,12 +51,12 @@ def check_config():
     """Check configuration and return issues"""
     issues = []
 
-    # Check API key
-    api_key = os.getenv("ZHIPU_API_KEY")
+    # Check API key (supports both ANTHROPIC_* and ZHIPU_* naming)
+    api_key = os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ZHIPU_API_KEY")
     if not api_key:
-        issues.append("❌ 缺少 ZHIPU_API_KEY")
-    elif api_key == "你的API_KEY填在这里":
-        issues.append("❌ 请在 .env 中填入真实的 ZHIPU_API_KEY")
+        issues.append("❌ 缺少 LLM API Key (ANTHROPIC_AUTH_TOKEN 或 ZHIPU_API_KEY)")
+    elif api_key == "your_api_key_here":
+        issues.append("❌ 请在 .env 中填入真实的 API Key")
 
     # Check tokens
     tokens_dir = Path(__file__).parent / "tokens"
