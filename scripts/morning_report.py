@@ -117,10 +117,10 @@ def score_sleep(total_sec, deep_sec, rem_sec, awake_cnt, gs=None):
 
 today = date.today()
 t = today.strftime("%Y-%m-%d")
-y = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def main():
+    y = (today - timedelta(days=1)).strftime("%Y-%m-%d")
     client = GarminClient()
     if not client.connect():
         print("❌ 连接 Garmin 失败，请检查 .env 中的 GARMIN_EMAIL / GARMIN_PASSWORD 配置")
@@ -574,7 +574,9 @@ def main():
     # 个人档案
     print("  📋 个人档案")
     print("  ─────────────────────────────────────────────────────")
-    print(f"   年龄: {cage}岁  |  健身年龄: {fage:.0f}岁")
+    fage_str = f"{fage:.0f}" if isinstance(fage, (int, float)) else str(fage)
+    cage_str = str(cage) if cage else "?"
+    print(f"   年龄: {cage_str}岁  |  健身年龄: {fage_str}岁")
     bmi_str = f"BMI: {bmi:.1f}" if bmi else "BMI: 无数据"
     print(f"   VO₂Max: {vo2max}  |  静息心率: {rhr}bpm  |  {bmi_str}")
     print(f"   设备: {device_name}  |  ACWR: {acwr}%（偏低）")
