@@ -250,3 +250,43 @@ class GarminClient:
         """Get exercise sets for strength training activities"""
         self._ensure_connected()
         return self._client.get_activity_exercise_sets(activity_id)
+
+    # ==========================================
+    # Body Composition & Device APIs
+    # ==========================================
+
+    def get_body_composition(self, start_date: str, end_date: str = None) -> Dict:
+        """Get body composition data (including BMI)
+
+        Args:
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD), defaults to start_date
+
+        Returns:
+            Body composition data including height, weight, BMI, etc.
+        """
+        self._ensure_connected()
+        return self._client.get_body_composition(start_date, end_date)
+
+    def get_daily_weigh_ins(self, date_str: str = None) -> Dict:
+        """Get weigh-in data for a specific date
+
+        Args:
+            date_str: Date string (YYYY-MM-DD), defaults to today
+
+        Returns:
+            Weigh-in data including weight, BMI, body fat, etc.
+        """
+        self._ensure_connected()
+        if date_str is None:
+            date_str = date.today().strftime("%Y-%m-%d")
+        return self._client.get_daily_weigh_ins(date_str)
+
+    def get_devices(self) -> List[Dict]:
+        """Get list of Garmin devices for the current user account
+
+        Returns:
+            List of device info dictionaries (model, device_id, etc.)
+        """
+        self._ensure_connected()
+        return self._client.get_devices()

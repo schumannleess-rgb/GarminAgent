@@ -24,6 +24,97 @@ from garmin_agent.client import GarminClient
 
 logger = logging.getLogger(__name__)
 
+
+# ===================== SCORING FUNCTIONS =====================
+
+def score_hrv(last_night, weekly):
+    """HRV 恢复评分，基于对数偏差"""
+    if last_night <= 0 or weekly <= 0:
+        return 75
+    cl = math.log(last_night)
+    bl = math.log(weekly)
+    p = (cl - bl) / bl
+    if p > 0.10:
+        s = 70
+    elif p > 0.05:
+        s = 85 + (p - 0.05) * (-300)
+    elif p >= 0:
+        s = 75 + p * 200
+    elif p >= -0.05:
+        s = 75 + p * 300
+    elif p > -0.08:
+        s = 60 + (p + 0.05) * (2000 / 3)
+    elif p > -0.15:
+        s = 40 + (p + 0.08) * (3000 / 7)
+    elif p >= -0.20:
+        s = 10 + (p + 0.15) * 200
+    else:
+        s = 0
+    return round(min(100, max(0, s)))
+
+
+def score_rhr(c, b):
+    """静息心率评分，基于与基线偏差"""
+    d = c - b
+    if d < -3:
+        s = 95
+    elif d <= 0:
+        s = 95 + (d + 3) * (-20 / 3)
+    elif d <= 3:
+        s = 75 + d * (-20 / 3)
+    elif d <= 6:
+        s = 55 + (d - 3) * (-25 / 3)
+    elif d <= 10:
+        s = 30 + (d - 6) * (-7.5)
+    else:
+        s = 0
+    return round(min(100, max(0, s)))
+
+
+def score_sleep(total_sec, deep_sec, rem_sec, awake_cnt, gs=None):
+    """睡眠质量评分，四维度加权"""
+    if gs is not None:
+        return gs
+    th = total_sec / 3600
+    dp = (deep_sec / total_sec * 100) if total_sec > 0 else 0
+    rp = (rem_sec / total_sec * 100) if total_sec > 0 else 0
+    if th < 5:
+        ds = 10
+    elif th < 6:
+        ds = 10 + (th - 5) * 35
+    elif th < 7:
+        ds = 45 + (th - 6) * 35
+    elif th <= 9:
+        ds = 80 + (th - 7) * 10
+    else:
+        ds = max(50, 100 - (th - 9) * 20)
+    if dp < 5:
+        des = 20
+    elif dp < 10:
+        des = 20 + (dp - 5) * 8
+    elif dp <= 25:
+        des = 60 + (dp - 10) * (40 / 15)
+    else:
+        des = 90
+    if rp < 10:
+        res = 30 + rp * 2
+    elif rp < 18:
+        res = 50 + (rp - 10) * 2.5
+    elif rp <= 25:
+        res = 70 + (rp - 18) * (30 / 7)
+    else:
+        res = 85
+    if awake_cnt == 0:
+        aws = 100
+    elif awake_cnt == 1:
+        aws = 80
+    elif awake_cnt == 2:
+        aws = 60
+    else:
+        aws = max(0, 45 - (awake_cnt - 3) * 15)
+    return round(ds * 0.30 + des * 0.35 + res * 0.15 + aws * 0.20)
+
+
 today = date.today()
 t = today.strftime("%Y-%m-%d")
 y = (today - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -170,88 +261,25 @@ def main():
     except Exception:
         fage = cage = ""
 
+    # ===================== BODY COMPOSITION & DEVICE =====================
+    bmi = None
+    device_name = "Garmin"
+    try:
+        body = client.get_daily_weigh_ins(t)
+        if body:
+            bmi = body.get("bmi") or body.get("weight", {}).get("bmi")
+    except Exception:
+        pass
+    try:
+        devices = client.get_devices()
+        if devices:
+            first = devices[0]
+            device_name = first.get("modelName") or first.get("deviceName") or device_name
+    except Exception:
+        pass
+
     # ===================== SCORING =====================
-    def score_hrv(last_night, weekly):
-        if last_night <= 0 or weekly <= 0:
-            return 75
-        cl = math.log(last_night)
-        bl = math.log(weekly)
-        p = (cl - bl) / bl
-        if p > 0.10:
-            s = 70
-        elif p > 0.05:
-            s = 85 + (p - 0.05) * (-300)
-        elif p >= 0:
-            s = 75 + p * 200
-        elif p >= -0.05:
-            s = 75 + p * 300
-        elif p > -0.08:
-            s = 60 + (p + 0.05) * (2000 / 3)
-        elif p > -0.15:
-            s = 40 + (p + 0.08) * (3000 / 7)
-        elif p >= -0.20:
-            s = 10 + (p + 0.15) * 200
-        else:
-            s = 0
-        return round(min(100, max(0, s)))
-
-    def score_rhr(c, b):
-        d = c - b
-        if d < -3:
-            s = 95
-        elif d <= 0:
-            s = 95 + (d + 3) * (-20 / 3)
-        elif d <= 3:
-            s = 75 + d * (-20 / 3)
-        elif d <= 6:
-            s = 55 + (d - 3) * (-25 / 3)
-        elif d <= 10:
-            s = 30 + (d - 6) * (-7.5)
-        else:
-            s = 0
-        return round(min(100, max(0, s)))
-
-    def score_sleep(total_sec, deep_sec, rem_sec, awake_cnt, gs=None):
-        if gs is not None:
-            return gs
-        th = total_sec / 3600
-        dp = (deep_sec / total_sec * 100) if total_sec > 0 else 0
-        rp = (rem_sec / total_sec * 100) if total_sec > 0 else 0
-        if th < 5:
-            ds = 10
-        elif th < 6:
-            ds = 10 + (th - 5) * 35
-        elif th < 7:
-            ds = 45 + (th - 6) * 35
-        elif th <= 9:
-            ds = 80 + (th - 7) * 10
-        else:
-            ds = max(50, 100 - (th - 9) * 20)
-        if dp < 5:
-            des = 20
-        elif dp < 10:
-            des = 20 + (dp - 5) * 8
-        elif dp <= 25:
-            des = 60 + (dp - 10) * (40 / 15)
-        else:
-            des = 90
-        if rp < 10:
-            res = 30 + rp * 2
-        elif rp < 18:
-            res = 50 + (rp - 10) * 2.5
-        elif rp <= 25:
-            res = 70 + (rp - 18) * (30 / 7)
-        else:
-            res = 85
-        if awake_cnt == 0:
-            aws = 100
-        elif awake_cnt == 1:
-            aws = 80
-        elif awake_cnt == 2:
-            aws = 60
-        else:
-            aws = max(0, 45 - (awake_cnt - 3) * 15)
-        return round(ds * 0.30 + des * 0.35 + res * 0.15 + aws * 0.20)
+    # score_hrv / score_rhr / score_sleep 定义在模块级别
 
     rhr_baseline = round(sum(v for _, v in rhr_list) / len(rhr_list)) if rhr_list else rhr
     rv = [v for _, v in hrv_list if v > 0]
@@ -547,8 +575,9 @@ def main():
     print("  📋 个人档案")
     print("  ─────────────────────────────────────────────────────")
     print(f"   年龄: {cage}岁  |  健身年龄: {fage:.0f}岁")
-    print(f"   VO₂Max: {vo2max}  |  静息心率: {rhr}bpm  |  BMI: 19.2")
-    print(f"   设备: Forerunner 955 Solar  |  ACWR: {acwr}%（偏低）")
+    bmi_str = f"BMI: {bmi:.1f}" if bmi else "BMI: 无数据"
+    print(f"   VO₂Max: {vo2max}  |  静息心率: {rhr}bpm  |  {bmi_str}")
+    print(f"   设备: {device_name}  |  ACWR: {acwr}%（偏低）")
     print()
 
     # 比赛预测
@@ -586,7 +615,7 @@ def main():
 
     # 底部
     print("  ─────────────────────────────────────────────────────")
-    print(f"  📡 数据来源: Garmin Forerunner 955")
+    print(f"  📡 数据来源: {device_name}")
     print(f"  ⏰ 报告生成: {today.strftime('%Y-%m-%d %H:%M')}")
     print("  🤖 分析引擎: Morning Advisor v1.0 (基于 24 篇文献)"
           "\n       Buchheit 2014 · Plews 2013 · Kiviniemi 2007"
