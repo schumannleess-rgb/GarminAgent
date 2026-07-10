@@ -156,45 +156,6 @@ def _infer_date_range(text: str, today: date = None) -> tuple:
     return result, result
 
 
-# Legacy prompts (kept for reference, not used in new flow)
-FORMAT_PROMPT = """你是 Garmin 训练助手，一个专业、主动的跑步教练。
-
-## 数据来源标注（必须遵守！）
-
-在回复开头标注数据来源：
-- 如果数据来自 Garmin 真实 API → 在标题后加 "📡 数据来自 Garmin"
-- 如果数据是模拟/缓存 → 加 "📦 数据来自缓存"
-
-## 回复风格
-
-- 🔥 **主动**：直接给结论和建议，不要问用户"你想了解什么"
-- 🏃 **专业**：用教练语气，专业但亲切
-- 📏 **精确**：距离 km，配速 分:秒/km，心率 bpm
-- 💡 **有用**：每次回复必须包含具体的下一步建议
-
-## 回复格式
-
-📊 **[标题]** 📡 数据来自 Garmin
-
-[1-2句话直接给结论]
-
-📌 关键数据：
-• 数据项：数值
-• 数据项：数值
-
-💡 建议：
-[1-3条具体可执行的建议，比如"建议明天做一次轻松跑恢复"而不是"可以考虑适当休息"]
-
-🔥 你可以试试：
-[主动推荐1-2个相关的后续查询，比如"想看分段配速？直接说'分段数据'" ]
-
-## 绝对禁止
-- 不要问用户"你想了解什么"、"需要我帮你查什么"
-- 不要问用户要 activity_id，自己去查
-- 不要编造数据，只用工具返回的真实数据
-- 不要说"如果您有其他问题"之类的客套话
-- **不要删除活动 ID**：工具返回的 [ID:xxxxx] 必须保留在回复中，用户需要它来查看详细数据
-"""
 
 
 def _resolve_env(name, fallback=None, alt_name=None):
@@ -236,6 +197,12 @@ class GarminAgent:
             raise ValueError(
                 "需要 API Key。请设置 ANTHROPIC_AUTH_TOKEN 或 ZHIPU_API_KEY 环境变量。"
             )
+
+        # 如果 base_url 或 model 使用了 fallback 值，记录警告
+        if not os.getenv("ANTHROPIC_BASE_URL") and not os.getenv("ZHIPU_BASE_URL"):
+            logger.warning("ANTHROPIC_BASE_URL 未设置，使用默认值: %s", self.base_url)
+        if not os.getenv("ANTHROPIC_DEFAULT_FABLE_MODEL") and not os.getenv("ZHIPU_MODEL"):
+            logger.warning("ANTHROPIC_DEFAULT_FABLE_MODEL 未设置，使用默认值: %s", self.model)
 
         self.client = GarminClient(email=garmin_email, password=garmin_password)
 
@@ -478,46 +445,6 @@ class GarminAgent:
                 seen.add(i)
                 unique.append(i)
         return unique
-
-    def _fallback_intent(self, user_message: str, history_messages: list = None) -> Dict[str, Any]:
-        """Legacy fallback for intent parsing."""
-        msg = user_message.lower()
-
-        if any(kw in msg for kw in ["这些", "刚才", "上面的", "全部", "都"]):
-            ids = self._extract_ids_from_history(history_messages)
-            if ids:
-                return {"tool": "get_activity_detail", "params": {"activity_id": ",".join(ids)}}
-
-        type_map = {
-            "间歇": "interval", "interval": "interval",
-            "节奏": "tempo", "tempo": "tempo",
-            "轻松": "easy", "easy": "easy",
-            "长距离": "long_run", "长跑": "long_run", "lsd": "long_run",
-            "比赛": "race", "race": "race",
-            "乳酸阈值": "lactate_threshold",
-            "越野": "trail",
-        }
-
-        for kw, tt in type_map.items():
-            if kw in msg:
-                params = {"training_type": tt}
-                m = re.search(r'(\d+)\s*(?:次|个)', msg)
-                if m:
-                    params["limit"] = int(m.group(1))
-                return {"tool": "search_by_training_type", "params": params}
-
-        if any(kw in msg for kw in ["状态", "睡眠", "hrv", "恢复"]):
-            return {"tool": "get_daily_health_summary", "params": {}}
-        if any(kw in msg for kw in ["体能", "vo2", "耐力", "能跑", "比赛预测"]):
-            return {"tool": "get_training_capacity", "params": {}}
-        if any(kw in msg for kw in ["这周", "本周", "周跑量"]):
-            return {"tool": "get_week_summary", "params": {"weeks": 1}}
-        if "心率" in msg:
-            return {"tool": "get_heart_rate_data", "params": {}}
-        if "静息" in msg:
-            return {"tool": "get_resting_heart_rate", "params": {}}
-
-        return {"tool": "get_latest_activity", "params": {}}
 
     def _archive_chat(self, user_msg: str, assistant_msg: str, session_id: str,
                       plan: Plan, execution_result: Dict[str, Any]):

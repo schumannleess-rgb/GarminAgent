@@ -7,6 +7,9 @@ Based on docs/api_fields_reference.md calculation logic.
 
 from datetime import datetime
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def format_distance(meters: float) -> str:
@@ -165,7 +168,8 @@ def format_date(dt_str: str) -> str:
         # Parse "2026-03-21 16:05:48"
         dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
         return f"{dt.month}月{dt.day}日 {dt.hour:02d}:{dt.minute:02d}"
-    except:
+    except ValueError:
+        logger.warning("Failed to parse date string: %s", dt_str)
         return dt_str
 
 

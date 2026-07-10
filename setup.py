@@ -25,6 +25,13 @@ SHELL = "cmd" if is_windows else "/bin/bash"
 def run(cmd, *args, **kwargs):
     """Run a command in a subprocess."""
     kwargs.setdefault("check", True)
+    print(f"  → {cmd}")
+    subprocess.run(cmd, *args, **kwargs)
+
+
+def run_shell(cmd, *args, **kwargs):
+    """Run a shell command in a subprocess (intentionally uses shell=True)."""
+    kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
     print(f"  → {cmd}")
     subprocess.run(cmd, *args, **kwargs)
@@ -37,7 +44,7 @@ def ensure_venv():
         return
 
     print(f"  Creating virtual environment...")
-    run(f"{sys.executable} -m venv {VENV_DIR}")
+    run_shell(f"{sys.executable} -m venv {VENV_DIR}")
 
 
 def get_python():
@@ -59,8 +66,8 @@ def install():
     print("Setting up Garmin Agent...")
     ensure_venv()
     pip = get_pip()
-    run(f"{pip} install --upgrade pip")
-    run(f"{pip} install -r {PROJECT_ROOT / 'requirements.txt'}")
+    run_shell(f"{pip} install --upgrade pip")
+    run_shell(f"{pip} install -r {PROJECT_ROOT / 'requirements.txt'}")
     print("\n✅ Installation complete!\n")
     print("Next steps:")
     print("  1. Copy .env.example to .env and fill in your credentials")
@@ -73,7 +80,7 @@ def run_agent():
         print("❌ Virtual environment not found. Run 'python setup.py install' first.")
         sys.exit(1)
     python = get_python()
-    run(f"{python} {PROJECT_ROOT / 'main.py'}")
+    run_shell(f"{python} {PROJECT_ROOT / 'main.py'}")
 
 
 def run_cli(command):
@@ -83,9 +90,14 @@ def run_cli(command):
         sys.exit(1)
     python = get_python()
     if command:
-        run(f"{python} {PROJECT_ROOT / 'garmin_cli.py'} {command}")
+        # 使用参数列表调用，避免 shell 注入
+        import subprocess
+        subprocess.run(
+            [python, str(PROJECT_ROOT / 'garmin_cli.py')] + command.split(),
+            check=True
+        )
     else:
-        run(f"{python} {PROJECT_ROOT / 'garmin_cli.py'} --help")
+        run_shell(f"{python} {PROJECT_ROOT / 'garmin_cli.py'} --help")
 
 
 def test_imports():
@@ -94,7 +106,7 @@ def test_imports():
         print("❌ Virtual environment not found. Run 'python setup.py install' first.")
         sys.exit(1)
     python = get_python()
-    run(f"{python} -c \"from garmin_agent.agent import GarminAgent; print('✅ Import OK')\"")
+    run_shell(f"{python} -c \"from garmin_agent.agent import GarminAgent; print('✅ Import OK')\"")
 
 
 def clean():

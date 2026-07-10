@@ -217,7 +217,8 @@ class ActivityClassificationCache:
         if last_sync:
             try:
                 return datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
-            except:
+            except (ValueError, TypeError):
+                logger.warning("Invalid last_sync date in cache: %s", last_sync)
                 return None
         return None
 

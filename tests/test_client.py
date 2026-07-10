@@ -8,6 +8,11 @@ from pathlib import Path
 
 from garmin_agent.client import GarminClient
 
+# 测试用虚拟凭证
+TEST_EMAIL = "test@example.com"
+TEST_PASSWORD = "test-pass-123"
+TEST_PASSWORD_SECRET = "test-secret-456"
+
 
 class TestGarminClientConnect:
     """Test connection flow: token restore → credential login."""
@@ -36,7 +41,7 @@ class TestGarminClientConnect:
         mock_garmin.get_full_name.return_value = "Test User"
         MockGarmin.return_value = mock_garmin
 
-        client = GarminClient(email="test@test.com", password="pass123")
+        client = GarminClient(email=TEST_EMAIL, password=TEST_PASSWORD)
         client.tokenstore = Path("/fake/tokens")
 
         with patch.object(Path, "exists", return_value=True):
@@ -60,7 +65,7 @@ class TestGarminClientConnect:
         mock_garmin.get_full_name.return_value = "Test User"
         MockGarmin.return_value = mock_garmin
 
-        client = GarminClient(email="test@test.com", password="secret")
+        client = GarminClient(email=TEST_EMAIL, password=TEST_PASSWORD_SECRET)
         client.tokenstore = Path("/fake/tokens")
 
         with patch.object(Path, "exists", return_value=False):

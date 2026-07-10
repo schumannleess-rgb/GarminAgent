@@ -258,7 +258,8 @@ def main():
         fa = client.get_fitnessage_data()
         fage = fa.get("fitnessAge", "")
         cage = fa.get("chronologicalAge", "")
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to get fitness age data: %s", e)
         fage = cage = ""
 
     # ===================== BODY COMPOSITION & DEVICE =====================
@@ -268,15 +269,15 @@ def main():
         body = client.get_daily_weigh_ins(t)
         if body:
             bmi = body.get("bmi") or body.get("weight", {}).get("bmi")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to get body composition data: %s", e)
     try:
         devices = client.get_devices()
         if devices:
             first = devices[0]
             device_name = first.get("modelName") or first.get("deviceName") or device_name
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to get device info: %s", e)
 
     # ===================== SCORING =====================
     # score_hrv / score_rhr / score_sleep 定义在模块级别
@@ -612,8 +613,8 @@ def main():
                 pace_s = round((pace_km - pace_m) * 60)
                 print(f"   {names[k]}:  {h}:{m:02d}  ·  {pace_m}:{pace_s:02d}/km")
             print()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to get race predictions: %s", e)
 
     # 底部
     print("  ─────────────────────────────────────────────────────")

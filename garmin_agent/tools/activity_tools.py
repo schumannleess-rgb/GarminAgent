@@ -1571,14 +1571,16 @@ def search_by_training_type(
         try:
             hr_data = client.get_activity_hr_in_timezones(activity_id)
             hr_zones = hr_data.get("timeInHeartRateZones", []) if hr_data else []
-        except:
+        except Exception as e:
+            logger.warning("Failed to get HR zones for activity %s: %s", activity_id, e)
             hr_zones = []
 
         # 获取分段
         try:
             laps_data = client.get_activity_splits(activity_id)
             laps = laps_data.get("lapDTOs", []) if laps_data else []
-        except:
+        except Exception as e:
+            logger.warning("Failed to get laps for activity %s: %s", activity_id, e)
             laps = []
 
         # 分类
