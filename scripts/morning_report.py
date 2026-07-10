@@ -19,6 +19,21 @@ ln = hs.get("lastNightAvg") or 0
 wa = hs.get("weeklyAvg") or 0
 st = hs.get("status", "")
 
+# 如果昨晚HRV无数据，尝试用昨天的最晚可用数据
+if not ln:
+    for days_back in range(1, 4):
+        d = (today - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        h_bak = client.get_hrv_data(d)
+        h_bak_s = h_bak.get("hrvSummary", {})
+        if h_bak_s.get("lastNightAvg"):
+            ln = h_bak_s["lastNightAvg"]
+            if not wa: wa = h_bak_s.get("weeklyAvg") or 0
+            st = h_bak_s.get("status", st)
+            break
+# 如果仍无weeklyAvg，从14天数据中计算
+if not wa:
+    wa = ln  # fallback
+
 rhr_data = client.get_rhr_day(t)
 rhr = 0
 for m in rhr_data.get("allMetrics", {}).get("metricsMap", {}).get("WELLNESS_RESTING_HEART_RATE", []):
@@ -33,6 +48,21 @@ rem = ds.get("remSleepSeconds", 0) or 0
 awake = ds.get("awakeCount", 0) or 0
 ss = ds.get("overallSleepScore", {})
 if isinstance(ss, dict): ss = ss.get("value")
+# 如果昨天睡眠数据缺失，向前推最多3天找最近的有效数据
+_sleep_search_days = 0
+while not ts and _sleep_search_days < 3:
+    _sleep_search_days += 1
+    d_bak = (today - timedelta(days=1+_sleep_search_days)).strftime("%Y-%m-%d")
+    sd_bak = client.get_sleep_data(d_bak)
+    if isinstance(sd_bak, list): sd_bak = sd_bak[0] if sd_bak else {}
+    ds_bak = sd_bak.get("dailySleepDTO", {})
+    ts = ds_bak.get("sleepTimeSeconds", 0) or 0
+    deep = ds_bak.get("deepSleepSeconds", 0) or 0
+    rem = ds_bak.get("remSleepSeconds", 0) or 0
+    awake = ds_bak.get("awakeCount", 0) or 0
+    ss_bak = ds_bak.get("overallSleepScore", {})
+    if isinstance(ss_bak, dict): ss = ss_bak.get("value")
+    if ts: y = d_bak  # 更新日期引用
 
 rd = client.get_training_readiness(t)
 if isinstance(rd, list): rd = rd[0] if rd else {}
@@ -78,16 +108,24 @@ for i in range(7, 0, -1):
 
 # 训练状态
 ts_data = client.get_training_status(t)
-sd = ts_data.get("mostRecentTrainingStatus", {}).get("latestTrainingStatusData", {})
+if ts_data is None:
+    ts_data = {"mostRecentTrainingStatus": {}, "mostRecentVO2Max": {}}
+sd = ts_data.get("mostRecentTrainingStatus", {}) or {}
+sd = sd.get("latestTrainingStatusData", {}) or {}
 status_phrase = "RECOVERY"
 acwr = 0
-for did, d in sd.items():
-    status_phrase = d.get("trainingStatusFeedbackPhrase", "RECOVERY")
-    a = d.get("acuteTrainingLoadDTO", {})
-    acwr = a.get("acwrPercent", 0)
+if isinstance(sd, dict):
+    for did, d in sd.items():
+        status_phrase = d.get("trainingStatusFeedbackPhrase", "RECOVERY") if isinstance(d, dict) else "RECOVERY"
+        a = d.get("acuteTrainingLoadDTO", {}) if isinstance(d, dict) else {}
+        acwr = a.get("acwrPercent", 0) if isinstance(a, dict) else 0
 
-vo2 = ts_data.get("mostRecentVO2Max", {}).get("generic", {})
-vo2max = vo2.get("vo2MaxValue", "")
+vo2_data = ts_data.get("mostRecentVO2Max", {}) or {}
+if isinstance(vo2_data, dict):
+    vo2 = vo2_data.get("generic", {}) or {}
+else:
+    vo2 = {}
+vo2max = vo2.get("vo2MaxValue", "") if isinstance(vo2, dict) else ""
 
 try:
     fa = client.get_fitnessage_data(t)
