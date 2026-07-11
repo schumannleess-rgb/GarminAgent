@@ -47,7 +47,7 @@ class GarminClient:
         from login.garmin_login import garmin_login
 
         try:
-            kwargs = {"is_cn": True}
+            kwargs = {"is_cn": False}
             if self.tokenstore:
                 kwargs["tokenstore"] = self.tokenstore
             if self.email:

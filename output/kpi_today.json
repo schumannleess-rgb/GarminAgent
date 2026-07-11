@@ -1,0 +1,230 @@
+{
+  "date": "2026-07-11",
+  "generated_at": "2026-07-11 00:00:00",
+  "script_version": "1.0",
+  "design_doc": "docs/design-morning-advisor.md",
+  "references_count": 24,
+  "mock_mode": false,
+  "data_source": "garmin_api",
+  "raw_inputs": {
+    "hrv": {
+      "last_night": 0,
+      "weekly_avg": 0,
+      "status": ""
+    },
+    "rhr": {
+      "current_bpm": 0
+    },
+    "sleep": {
+      "total_seconds": 0,
+      "deep_seconds": 0,
+      "rem_seconds": 0,
+      "awake_count": 0,
+      "garmin_sleep_score": null,
+      "date_used": "2026-07-10"
+    },
+    "readiness": {
+      "score": 0,
+      "level": ""
+    },
+    "profile": {
+      "vo2max": "",
+      "bmi": null,
+      "device": "Garmin",
+      "fitness_age": "",
+      "chronological_age": "",
+      "training_status_phrase": "RECOVERY",
+      "acwr_percent": 0
+    },
+    "race_predictions": {}
+  },
+  "history": {
+    "hrv_14d": [],
+    "rhr_28d": [],
+    "sleep_7d": [],
+    "readiness_7d": []
+  },
+  "baselines": {
+    "hrv_baseline_7d": 0,
+    "rhr_baseline_28d": 0,
+    "sleep_baseline_7d": {
+      "total_seconds": 0,
+      "total_hours": 0.0,
+      "deep_pct_avg": 0
+    },
+    "formulas": {
+      "hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014",
+      "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003",
+      "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004"
+    }
+  },
+  "dimension_scores": {
+    "hrv": {
+      "last_night_ms": 0,
+      "weekly_avg_ms": 0,
+      "fallback_used": true,
+      "score": 75,
+      "zone": "FALLBACK",
+      "ln_last_night": null,
+      "ln_baseline": null,
+      "pct_change": null,
+      "pct_change_pct": null
+    },
+    "rhr": {
+      "current_bpm": 0,
+      "baseline_bpm": 0,
+      "deviation": 0,
+      "deviation_bpm": "+0 bpm",
+      "anchors": [
+        {
+          "deviation_bpm": -3,
+          "score": 95,
+          "label": "very_low"
+        },
+        {
+          "deviation_bpm": 0,
+          "score": 75,
+          "label": "baseline"
+        },
+        {
+          "deviation_bpm": 3,
+          "score": 55,
+          "label": "mild_fatigue"
+        },
+        {
+          "deviation_bpm": 6,
+          "score": 30,
+          "label": "fatigue"
+        },
+        {
+          "deviation_bpm": 10,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 75,
+      "zone": "NORMAL"
+    },
+    "sleep": {
+      "total_seconds": 0,
+      "deep_seconds": 0,
+      "rem_seconds": 0,
+      "awake_count": 0,
+      "garmin_score_used": false,
+      "total_hours": 0.0,
+      "deep_pct": 0,
+      "rem_pct": 0,
+      "sub_scores": {
+        "duration": {
+          "value": 10,
+          "zone": "SEVERE_SHORT",
+          "weight": 0.3
+        },
+        "deep": {
+          "value": 20,
+          "zone": "SEVERE_LOW",
+          "weight": 0.35
+        },
+        "rem": {
+          "value": 30,
+          "zone": "LOW",
+          "weight": 0.15
+        },
+        "awake": {
+          "value": 100,
+          "zone": "NONE",
+          "weight": 0.2
+        }
+      },
+      "weights": {
+        "duration": 0.3,
+        "deep": 0.35,
+        "rem": 0.15,
+        "awake": 0.2
+      },
+      "score": 34
+    },
+    "readiness": {
+      "original_score": 0,
+      "score": 0,
+      "zone": "RED"
+    }
+  },
+  "composite": {
+    "recovery_score": 51,
+    "weights": {
+      "hrv": 0.35,
+      "sleep": 0.3,
+      "rhr": 0.2,
+      "readiness": 0.15
+    },
+    "grade": "D",
+    "label": "🟠 恢复不足",
+    "zone": "POOR",
+    "calculation_steps": [
+      "HRV: 75 x 0.35 = 26.25",
+      "Sleep: 34 x 0.30 = 10.20",
+      "RHR: 75 x 0.20 = 15.00",
+      "Readiness: 0 x 0.15 = 0.00",
+      "Total: 51.45 -> 51"
+    ],
+    "formula": "recovery = HRV x 0.35 + Sleep x 0.30 + RHR x 0.20 + Readiness x 0.15",
+    "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003"
+  },
+  "multi_dimension_validation": {
+    "num_patterns_checked": 5,
+    "patterns_checked": [
+      {
+        "id": "IDEAL_RECOVERY",
+        "label": "理想恢复",
+        "condition_desc": "HRV↑↑ RHR↓→ 睡眠优",
+        "ref": "[R2] Buchheit 2014",
+        "match": false
+      },
+      {
+        "id": "SYMPATHETIC_FATIGUE",
+        "label": "交感疲劳",
+        "condition_desc": "HRV↓↓ RHR↑↑ 睡眠差",
+        "ref": "[R10] Plews 2013",
+        "match": false
+      },
+      {
+        "id": "PARASYMPATHETIC_REBOUND",
+        "label": "副交感反弹",
+        "condition_desc": "HRV↑↑↑ RHR↓↓ 睡眠中",
+        "ref": "[R9] Recovery Tower Spike",
+        "match": false
+      },
+      {
+        "id": "SLEEP_DEBT",
+        "label": "睡眠债务疲劳",
+        "condition_desc": "HRV↓ RHR→ 睡眠差·短",
+        "ref": "[R16] Ohayon 2004",
+        "match": false
+      },
+      {
+        "id": "HIGH_LOAD_ADAPTATION",
+        "label": "高负荷适应",
+        "condition_desc": "HRV↓ RHR↑ 睡眠中",
+        "ref": "[R22] Chalencon 2012",
+        "match": false
+      }
+    ],
+    "num_matched": 0,
+    "matched_patterns": []
+  },
+  "trend": {
+    "readiness_direction": "",
+    "readiness_last_3": []
+  },
+  "derived_metrics_summary": {
+    "hrv_pct_change": null,
+    "hrv_ln_change": null,
+    "rhr_deviation_bpm": 0,
+    "sleep_total_hours": 0.0,
+    "sleep_deep_pct": 0,
+    "sleep_rem_pct": 0,
+    "acwr_percent": 0,
+    "readiness_score_original": 0
+  }
+}
