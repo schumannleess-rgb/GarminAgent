@@ -306,127 +306,34 @@ def fetch_data(client, today):
             "trend": {"readiness_direction": trend_text,
                       "readiness_last_3": recent_rd if recent_rd else []}}
 
-def db_data(today):
-    """从本地 fitness_v3.db 读取真实Garmin数据"""
-    import sqlite3
-    db_path = "D:/Garmin/Garmin/garmin-fitness-v3/data/fitness_v3.db"
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    
-    # Get latest available date
-    cursor.execute("SELECT MAX(date) FROM daily_health WHERE hrv_last_night_avg IS NOT NULL")
-    latest_date = cursor.fetchone()[0]
-    print(f"[db] Using latest data from {latest_date}")
-    
-    # Get the latest entry
-    cursor.execute("SELECT * FROM daily_health WHERE date = ?", (latest_date,))
-    cols = [c[0] for c in cursor.description]
-    row = cursor.fetchone()
-    l = dict(zip(cols, row))
-    
-    # Get 14d HRV history
-    cursor.execute("SELECT date, hrv_last_night_avg FROM daily_health WHERE hrv_last_night_avg IS NOT NULL ORDER BY date DESC LIMIT 14")
-    hrv_rows = cursor.fetchall()
-    
-    # Get 28d RHR history
-    cursor.execute("SELECT date, resting_hr FROM daily_health WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 28")
-    rhr_rows = cursor.fetchall()
-    
-    # Get 7d sleep
-    cursor.execute("SELECT date, sleep_seconds, deep_sleep_seconds, awake_sleep_seconds FROM daily_health ORDER BY date DESC LIMIT 7")
-    sleep_rows = cursor.fetchall()
-    
-    # Get 7d readiness (use training_load as proxy)
-    cursor.execute("SELECT date, training_load, vo2_max FROM daily_health ORDER BY date DESC LIMIT 7")
-    rd_rows = cursor.fetchall()
-    
-    conn.close()
-    
-    return {
-        "hrv_raw": {"last_night": l.get("hrv_last_night_avg") or 0, "weekly_avg": l.get("hrv_weekly_avg") or 0, "status": l.get("hrv_status") or ""},
-        "rhr_raw": l.get("resting_hr") or 0,
-        "sleep_raw": {"total_seconds": int(l.get("sleep_seconds") or 0), "deep_seconds": int(l.get("deep_sleep_seconds") or 0), "rem_seconds": int(l.get("rem_sleep_seconds") or 0), "awake_count": 0, "garmin_sleep_score": l.get("sleep_score")},
-        "readiness_raw": {"score": l.get("training_readiness_score") or 0, "level": l.get("training_readiness_level") or ""},
-        "history": {
-            "hrv_14d": [{"date": d, "value": v} for d, v in hrv_rows if v],
-            "rhr_28d": [{"date": d, "value": v} for d, v in rhr_rows if v],
-            "sleep_7d": [{"date": d, "total_sec": int(t or 0), "deep_sec": int(dp or 0), "awake": int(aw or 0)} for d, t, dp, aw in sleep_rows if t],
-            "readiness_7d": [{"date": d, "score": int(sc or 0), "level": ""} for d, sc, _ in rd_rows if sc]
-        },
-        "profile": {"vo2max": l.get("vo2_max") or "", "bmi": None, "device": "Forerunner 955 Solar",
-                    "fitness_age": "", "chronological_age": "",
-                    "training_status_phrase": l.get("training_status") or "RECOVERY", "acwr_percent": 0},
-        "race_predictions": {},
-        "trend": {"readiness_direction": "", "readiness_last_3": []}
-    }
 
-
-def mock_data(today):
-    t = today.strftime("%Y-%m-%d")
-    return {
-        "hrv_raw": {"last_night": 62, "weekly_avg": 58, "status": "BALANCED"},
-        "rhr_raw": 48,
-        "sleep_raw": {"total_seconds": 27000, "deep_seconds": 5940,
-                      "rem_seconds": 5670, "awake_count": 1,
-                      "garmin_sleep_score": None,
-                      "date_used": (today - timedelta(days=1)).strftime("%Y-%m-%d")},
-        "readiness_raw": {"score": 70, "level": "GOOD"},
-        "history": {
-            "hrv_14d": [{"date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
-                         "value": 55 + (i % 5)} for i in range(14, 0, -1)],
-            "rhr_28d": [{"date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
-                         "value": 47 + (i % 3)} for i in range(28, 0, -1)],
-            "sleep_7d": [{"date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
-                          "total_sec": 26400 + (i % 4) * 600,
-                          "deep_sec": 5400 + (i % 3) * 300,
-                          "awake": 1 + (i % 2)} for i in range(7, 0, -1)],
-            "readiness_7d": [{"date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
-                              "score": 65 + (i % 4) * 5,
-                              "level": "GOOD"} for i in range(7, 0, -1)]
-        },
-        "profile": {"vo2max": 48, "bmi": 21.5, "device": "Forerunner 255",
-                    "fitness_age": 28, "chronological_age": 32,
-                    "training_status_phrase": "RECOVERY", "acwr_percent": 89},
-        "race_predictions": {"time5K": {"minutes": 22, "formatted": "0h22"},
-                             "time10K": {"minutes": 46, "formatted": "0h46"},
-                             "timeHalfMarathon": {"minutes": 102, "formatted": "1h42"},
-                             "timeMarathon": {"minutes": 215, "formatted": "3h35"}},
-        "trend": {"readiness_direction": "\u27a1\ufe0f \u8bad\u7ec3\u51c6\u5907\u5ea6\u8d8b\u4e8e\u7a33\u5b9a  |  HRV \u56de\u5347\u4e2d",
-                  "readiness_last_3": [75, 80, 85]}
-    }
 
 def main():
+    """计算所有KPI并输出JSON"""
     import argparse
     parser = argparse.ArgumentParser(description="Compute all KPIs from Garmin data")
-    parser.add_argument("--mock", action="store_true", help="Use mock data")
-    parser.add_argument("--from-db", action="store_true", help="Read from local fitness_v3.db")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     parser.add_argument("--output", "-o", type=str, help="Output JSON file path")
     args = parser.parse_args()
+
     today = date.today()
     result = {
         "date": today.strftime("%Y-%m-%d"),
         "generated_at": today.strftime("%Y-%m-%d %H:%M:%S"),
         "script_version": "1.0",
         "design_doc": "docs/design-morning-advisor.md",
-        "references_count": 24,
-        "mock_mode": args.mock
+        "references_count": 24
     }
-    if args.from_db:
-        data = db_data(today)
-        result["data_source"] = "local_db"
-    elif args.mock:
-        data = mock_data(today)
-        result["data_source"] = "mock"
-    else:
-        from garmin_agent.client import GarminClient
-        client = GarminClient()
-        if not client.connect():
-            result["error"] = "Garmin\u8fde\u63a5\u5931\u8d25\uff0c\u68c0\u67e5 .env \u914d\u7f6e"
-            print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
-            return 1
-        data = fetch_data(client, today)
-        result["data_source"] = "garmin_api"
+
+    from garmin_agent.client import GarminClient
+    client = GarminClient()
+    if not client.connect():
+        result["error"] = "Garmin\u8fde\u63a5\u5931\u8d25\uff0c\u68c0\u67e5 .env \u914d\u7f6e"
+        print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
+        return 1
+    data = fetch_data(client, today)
+    result["data_source"] = "garmin_api"
+
     result["raw_inputs"] = {
         "hrv": data["hrv_raw"],
         "rhr": {"current_bpm": data["rhr_raw"]},
@@ -436,6 +343,7 @@ def main():
         "race_predictions": data["race_predictions"]
     }
     result["history"] = data["history"]
+
     # baselines
     rv = [v for v in [h["value"] for h in data["history"]["hrv_14d"]] if v > 0]
     hrv_baseline_7d = round(sum(rv) / len(rv)) if rv else data["hrv_raw"]["weekly_avg"]
@@ -457,6 +365,7 @@ def main():
             "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004"
         }
     }
+
     # scores
     hrv = score_hrv_vars(data["hrv_raw"]["last_night"] or data["hrv_raw"]["weekly_avg"], hrv_baseline_7d)
     rhr_sc = score_rhr_vars(data["rhr_raw"], rhr_baseline_28d)
@@ -467,11 +376,13 @@ def main():
                                 data["sleep_raw"]["garmin_sleep_score"])
     rd_sc = score_readiness_vars(data["readiness_raw"]["score"])
     result["dimension_scores"] = {"hrv": hrv, "rhr": rhr_sc, "sleep": sleep_sc, "readiness": rd_sc}
+
     recovery = compute_recovery(hrv["score"], sleep_sc["score"], rhr_sc["score"], rd_sc["score"])
     result["composite"] = recovery
+
     hrv_pct = hrv.get("pct_change_pct") or 0
     rhr_dev = rhr_sc["deviation"]
-    sleep_h = data["sleep_raw"]["total_seconds"] / 3600
+    sleep_h = data["sleep_raw"]["total_seconds"] / 3600 if data["sleep_raw"]["total_seconds"] else 0
     awake_cnt = data["sleep_raw"]["awake_count"]
     deep_pct = (data["sleep_raw"]["deep_seconds"] / data["sleep_raw"]["total_seconds"] * 100
                 if data["sleep_raw"]["total_seconds"] > 0 else 0)
@@ -481,21 +392,23 @@ def main():
         "hrv_pct_change": hrv.get("pct_change_pct"),
         "hrv_ln_change": hrv.get("pct_change"),
         "rhr_deviation_bpm": rhr_dev,
-        "sleep_total_hours": round(sleep_h, 2),
-        "sleep_deep_pct": round(deep_pct, 2),
-        "sleep_rem_pct": round(sleep_sc.get("rem_pct", 0) if sleep_sc.get("rem_pct") else (data["sleep_raw"]["rem_seconds"] / data["sleep_raw"]["total_seconds"] * 100 if data["sleep_raw"]["total_seconds"] > 0 else 0), 2),
+        "sleep_total_hours": round(sleep_h, 2) if sleep_h else 0,
+        "sleep_deep_pct": round(deep_pct, 2) if deep_pct else 0,
+        "sleep_rem_pct": round(data["sleep_raw"]["rem_seconds"] / data["sleep_raw"]["total_seconds"] * 100, 2) if data["sleep_raw"]["total_seconds"] > 0 else 0,
         "acwr_percent": data["profile"]["acwr_percent"],
         "readiness_score_original": data["readiness_raw"]["score"]
     }
+
     output = json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None)
     if args.output:
-        path = Path(args.output)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(output, encoding="utf-8")
-        print(f"JSON written to {path}")
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(output, encoding="utf-8")
+        print(f"JSON written to {out_path}")
     else:
         print(output)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
