@@ -306,6 +306,61 @@ def fetch_data(client, today):
             "trend": {"readiness_direction": trend_text,
                       "readiness_last_3": recent_rd if recent_rd else []}}
 
+def db_data(today):
+    """从本地 fitness_v3.db 读取真实Garmin数据"""
+    import sqlite3
+    db_path = "D:/Garmin/Garmin/garmin-fitness-v3/data/fitness_v3.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Get latest available date
+    cursor.execute("SELECT MAX(date) FROM daily_health WHERE hrv_last_night_avg IS NOT NULL")
+    latest_date = cursor.fetchone()[0]
+    print(f"[db] Using latest data from {latest_date}")
+    
+    # Get the latest entry
+    cursor.execute("SELECT * FROM daily_health WHERE date = ?", (latest_date,))
+    cols = [c[0] for c in cursor.description]
+    row = cursor.fetchone()
+    l = dict(zip(cols, row))
+    
+    # Get 14d HRV history
+    cursor.execute("SELECT date, hrv_last_night_avg FROM daily_health WHERE hrv_last_night_avg IS NOT NULL ORDER BY date DESC LIMIT 14")
+    hrv_rows = cursor.fetchall()
+    
+    # Get 28d RHR history
+    cursor.execute("SELECT date, resting_hr FROM daily_health WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 28")
+    rhr_rows = cursor.fetchall()
+    
+    # Get 7d sleep
+    cursor.execute("SELECT date, sleep_seconds, deep_sleep_seconds, awake_sleep_seconds FROM daily_health ORDER BY date DESC LIMIT 7")
+    sleep_rows = cursor.fetchall()
+    
+    # Get 7d readiness (use training_load as proxy)
+    cursor.execute("SELECT date, training_load, vo2_max FROM daily_health ORDER BY date DESC LIMIT 7")
+    rd_rows = cursor.fetchall()
+    
+    conn.close()
+    
+    return {
+        "hrv_raw": {"last_night": l.get("hrv_last_night_avg") or 0, "weekly_avg": l.get("hrv_weekly_avg") or 0, "status": l.get("hrv_status") or ""},
+        "rhr_raw": l.get("resting_hr") or 0,
+        "sleep_raw": {"total_seconds": int(l.get("sleep_seconds") or 0), "deep_seconds": int(l.get("deep_sleep_seconds") or 0), "rem_seconds": int(l.get("rem_sleep_seconds") or 0), "awake_count": 0, "garmin_sleep_score": l.get("sleep_score")},
+        "readiness_raw": {"score": l.get("training_readiness_score") or 0, "level": l.get("training_readiness_level") or ""},
+        "history": {
+            "hrv_14d": [{"date": d, "value": v} for d, v in hrv_rows if v],
+            "rhr_28d": [{"date": d, "value": v} for d, v in rhr_rows if v],
+            "sleep_7d": [{"date": d, "total_sec": int(t or 0), "deep_sec": int(dp or 0), "awake": int(aw or 0)} for d, t, dp, aw in sleep_rows if t],
+            "readiness_7d": [{"date": d, "score": int(sc or 0), "level": ""} for d, sc, _ in rd_rows if sc]
+        },
+        "profile": {"vo2max": l.get("vo2_max") or "", "bmi": None, "device": "Forerunner 955 Solar",
+                    "fitness_age": "", "chronological_age": "",
+                    "training_status_phrase": l.get("training_status") or "RECOVERY", "acwr_percent": 0},
+        "race_predictions": {},
+        "trend": {"readiness_direction": "", "readiness_last_3": []}
+    }
+
+
 def mock_data(today):
     t = today.strftime("%Y-%m-%d")
     return {
@@ -344,6 +399,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Compute all KPIs from Garmin data")
     parser.add_argument("--mock", action="store_true", help="Use mock data")
+    parser.add_argument("--from-db", action="store_true", help="Read from local fitness_v3.db")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     parser.add_argument("--output", "-o", type=str, help="Output JSON file path")
     args = parser.parse_args()
@@ -356,7 +412,10 @@ def main():
         "references_count": 24,
         "mock_mode": args.mock
     }
-    if args.mock:
+    if args.from_db:
+        data = db_data(today)
+        result["data_source"] = "local_db"
+    elif args.mock:
         data = mock_data(today)
         result["data_source"] = "mock"
     else:
