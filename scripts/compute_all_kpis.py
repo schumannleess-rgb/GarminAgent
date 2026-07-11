@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
 """compute_all_kpis: 计算所有KPI并输出完整JSON"""
-import json, sys, math
+import json, sys, math, sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_PROJECT_ROOT))
-from dotenv import load_dotenv
-load_dotenv(_PROJECT_ROOT / ".env")
-
 def score_hrv_vars(last_night, weekly):
-    """HRV评分 + 所有中间变量"""
     result = {"last_night_ms": last_night, "weekly_avg_ms": weekly, "fallback_used": False}
     if last_night <= 0 or weekly <= 0:
         result.update({"score": 75, "zone": "FALLBACK", "fallback_used": True,
                        "ln_last_night": None, "ln_baseline": None,
                        "pct_change": None, "pct_change_pct": None})
         return result
-    cl = math.log(last_night)
-    bl = math.log(weekly)
+    cl = math.log(last_night); bl = math.log(weekly)
     p = (cl - bl) / bl
     result.update({"ln_last_night": round(cl, 4), "ln_baseline": round(bl, 4),
                    "pct_change": round(p, 6), "pct_change_pct": round(p * 100, 2)})
@@ -34,15 +27,13 @@ def score_hrv_vars(last_night, weekly):
     elif p > -0.15: s = 40 + (p + 0.08) * (3000 / 7); z = "RED"
     elif p >= -0.20: s = 10 + (p + 0.15) * 200; z = "RED_DEEP"
     else: s = 0; z = "SEVERE"
-    result["score"] = round(min(100, max(0, s)))
-    result["zone"] = z
+    result["score"] = round(min(100, max(0, s))); result["zone"] = z
     return result
 
 def score_rhr_vars(current_rhr, baseline_rhr_28d):
     result = {"current_bpm": current_rhr, "baseline_bpm": baseline_rhr_28d}
     d = current_rhr - baseline_rhr_28d
-    result["deviation"] = d
-    result["deviation_bpm"] = f"{d:+d} bpm"
+    result["deviation"] = d; result["deviation_bpm"] = f"{d:+d} bpm"
     anchors = [(-3, 95, "very_low"), (0, 75, "baseline"),
                (3, 55, "mild_fatigue"), (6, 30, "fatigue"), (10, 0, "severe")]
     result["anchors"] = [{"deviation_bpm": a, "score": s, "label": l} for a, s, l in anchors]
@@ -52,25 +43,19 @@ def score_rhr_vars(current_rhr, baseline_rhr_28d):
     elif d <= 6: s = 55 + (d - 3) * (-25 / 3); z = "MILD_FATIGUE"
     elif d <= 10: s = 30 + (d - 6) * (-7.5); z = "FATIGUE"
     else: s = 0; z = "SEVERE"
-    result["score"] = round(min(100, max(0, s)))
-    result["zone"] = z
+    result["score"] = round(min(100, max(0, s))); result["zone"] = z
     return result
 
 def score_sleep_vars(total_sec, deep_sec, rem_sec, awake_cnt, gs=None):
     result = {"total_seconds": total_sec, "deep_seconds": deep_sec,
               "rem_seconds": rem_sec, "awake_count": awake_cnt}
     if gs is not None:
-        result["garmin_score_used"] = True
-        result["score"] = gs
-        result["sub_scores"] = {}
+        result["garmin_score_used"] = True; result["score"] = gs; result["sub_scores"] = {}
         return result
     result["garmin_score_used"] = False
-    th = total_sec / 3600
-    result["total_hours"] = round(th, 2)
-    dp = (deep_sec / total_sec * 100) if total_sec > 0 else 0
-    result["deep_pct"] = round(dp, 2)
-    rp = (rem_sec / total_sec * 100) if total_sec > 0 else 0
-    result["rem_pct"] = round(rp, 2)
+    th = total_sec / 3600; result["total_hours"] = round(th, 2)
+    dp = (deep_sec / total_sec * 100) if total_sec > 0 else 0; result["deep_pct"] = round(dp, 2)
+    rp = (rem_sec / total_sec * 100) if total_sec > 0 else 0; result["rem_pct"] = round(rp, 2)
     if th < 5: ds = 10; dz = "SEVERE_SHORT"
     elif th < 6: ds = round(10 + (th - 5) * 35, 1); dz = "SHORT"
     elif th < 7: ds = round(45 + (th - 6) * 35, 1); dz = "MODERATE"
@@ -89,10 +74,10 @@ def score_sleep_vars(total_sec, deep_sec, rem_sec, awake_cnt, gs=None):
     elif awake_cnt == 2: aws = 60; az = "TWICE"
     else: aws = round(max(0, 45 - (awake_cnt - 3) * 15), 1); az = "FRAGMENTED"
     result["sub_scores"] = {
-        "duration":  {"value": ds, "zone": dz, "weight": 0.30},
-        "deep":      {"value": des, "zone": dez, "weight": 0.35},
-        "rem":       {"value": res, "zone": rez, "weight": 0.15},
-        "awake":     {"value": aws, "zone": az, "weight": 0.20}
+        "duration": {"value": ds, "zone": dz, "weight": 0.30},
+        "deep": {"value": des, "zone": dez, "weight": 0.35},
+        "rem": {"value": res, "zone": rez, "weight": 0.15},
+        "awake": {"value": aws, "zone": az, "weight": 0.20}
     }
     result["weights"] = {"duration": 0.30, "deep": 0.35, "rem": 0.15, "awake": 0.20}
     result["score"] = round(ds * 0.30 + des * 0.35 + res * 0.15 + aws * 0.20)
@@ -144,174 +129,87 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
             "formula": "recovery = HRV x 0.35 + Sleep x 0.30 + RHR x 0.20 + Readiness x 0.15",
             "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003"}
 
-def fetch_data(client, today):
-    import logging
-    t = today.strftime("%Y-%m-%d")
-    y = (today - timedelta(days=1)).strftime("%Y-%m-%d")
-    hrv = client.get_hrv_data(t)
-    hs = hrv.get("hrvSummary", {})
-    ln = hs.get("lastNightAvg") or 0
-    wa = hs.get("weeklyAvg") or 0
-    st = hs.get("status", "")
-    if not ln:
-        for db in range(1, 4):
-            d = (today - timedelta(days=db)).strftime("%Y-%m-%d")
-            h_bak = client.get_hrv_data(d).get("hrvSummary", {})
-            if h_bak.get("lastNightAvg"):
-                ln = h_bak["lastNightAvg"]
-                wa = wa or h_bak.get("weeklyAvg") or 0
-                st = h_bak.get("status", st)
-                break
-    if not wa:
-        wa = ln
-    rhr = 0
-    rhr_data = client.get_rhr_day(t)
-    for m in rhr_data.get("allMetrics", {}).get("metricsMap", {}).get("WELLNESS_RESTING_HEART_RATE", []):
-        if m.get("value"):
-            rhr = int(m["value"])
-    sd = client.get_sleep_data(y)
-    if isinstance(sd, list):
-        sd = sd[0] if sd else {}
-    ds = sd.get("dailySleepDTO", {})
-    ts = ds.get("sleepTimeSeconds", 0) or 0
-    deep = ds.get("deepSleepSeconds", 0) or 0
-    rem = ds.get("remSleepSeconds", 0) or 0
-    awake = ds.get("awakeCount", 0) or 0
-    ss = ds.get("overallSleepScore", {})
-    ss_val = ss.get("value") if isinstance(ss, dict) else ss
-    _s = 0
-    while not ts and _s < 3:
-        _s += 1
-        d_bak = (today - timedelta(days=1 + _s)).strftime("%Y-%m-%d")
-        sd_bak = client.get_sleep_data(d_bak)
-        if isinstance(sd_bak, list):
-            sd_bak = sd_bak[0] if sd_bak else {}
-        ds_bak = sd_bak.get("dailySleepDTO", {})
-        ts = ds_bak.get("sleepTimeSeconds", 0) or 0
-        deep = ds_bak.get("deepSleepSeconds", 0) or 0
-        rem = ds_bak.get("remSleepSeconds", 0) or 0
-        awake = ds_bak.get("awakeCount", 0) or 0
-        ss_o = ds_bak.get("overallSleepScore", {})
-        ss_val = ss_o.get("value") if isinstance(ss_o, dict) else ss_o
-    rd = client.get_training_readiness(t)
-    if isinstance(rd, list):
-        rd = rd[0] if rd else {}
-    rscore = rd.get("score", 0) or 0
-    rlevel = rd.get("level", "")
-    hrv_list = []
-    for i in range(14, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        h = client.get_hrv_data(d).get("hrvSummary", {})
-        v = h.get("lastNightAvg")
-        if v:
-            hrv_list.append((d, v))
-    rhr_list = []
-    for i in range(28, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        r = client.get_rhr_day(d)
-        for m in r.get("allMetrics", {}).get("metricsMap", {}).get("WELLNESS_RESTING_HEART_RATE", []):
-            if m.get("value"):
-                rhr_list.append((d, int(m["value"])))
-    sleep_list = []
-    for i in range(7, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        s = client.get_sleep_data(d)
-        if isinstance(s, list):
-            s = s[0] if s else {}
-        sds = s.get("dailySleepDTO", {})
-        total = sds.get("sleepTimeSeconds", 0) or 0
-        if total:
-            sleep_list.append((d, total, sds.get("deepSleepSeconds", 0) or 0, sds.get("awakeCount", 0) or 0))
-    rd_list = []
-    for i in range(7, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        r = client.get_training_readiness(d)
-        if isinstance(r, list):
-            r = r[0] if r else {}
-        sc = r.get("score", 0)
-        lv = r.get("level", "")
-        if sc:
-            rd_list.append((d, sc, lv))
-    vo2max = ""
-    status_phrase = "RECOVERY"
-    acwr = 0
-    try:
-        ts_data = client.get_training_status(t)
-        if ts_data:
-            sd2 = ts_data.get("mostRecentTrainingStatus", {}).get("latestTrainingStatusData", {})
-            if isinstance(sd2, dict):
-                for did, d_ in sd2.items():
-                    if isinstance(d_, dict):
-                        status_phrase = d_.get("trainingStatusFeedbackPhrase", "RECOVERY")
-                        a_ = d_.get("acuteTrainingLoadDTO", {})
-                        acwr = a_.get("acwrPercent", 0) if isinstance(a_, dict) else 0
-            vo2 = ts_data.get("mostRecentVO2Max", {}).get("generic", {})
-            vo2max = vo2.get("vo2MaxValue", "") if isinstance(vo2, dict) else ""
-    except Exception as e:
-        logging.warning("training status: %s", e)
-    fage, cage = "", ""
-    try:
-        fa = client.get_fitnessage_data()
-        fage = fa.get("fitnessAge", "")
-        cage = fa.get("chronologicalAge", "")
-    except Exception as e:
-        logging.warning("fitness age: %s", e)
-    bmi = None
-    device_name = "Garmin"
-    try:
-        body = client.get_daily_weigh_ins(t)
-        if body:
-            bmi = body.get("bmi") or body.get("weight", {}).get("bmi")
-    except Exception as e:
-        logging.warning("body: %s", e)
-    try:
-        devices = client.get_devices()
-        if devices:
-            device_name = devices[0].get("modelName") or devices[0].get("deviceName") or device_name
-    except Exception as e:
-        logging.warning("devices: %s", e)
-    race_pred = {}
-    try:
-        rp = client.get_race_predictions()
-        for k in ["time5K", "time10K", "timeHalfMarathon", "timeMarathon"]:
-            if k in rp and rp[k]:
-                race_pred[k] = int(rp[k] / 60)
-    except Exception as e:
-        logging.warning("race pred: %s", e)
-    recent_rd = [sc for _, sc, _ in rd_list[-3:]]
-    trend_text = ""
-    if len(recent_rd) >= 3:
-        trend_text = ("📈 训练准备度上升趋势" if recent_rd[0] < recent_rd[-1] - 10
-                      else "📉 训练准备度下降趋势" if recent_rd[0] > recent_rd[-1] + 10
-                      else "➡️ 训练准备度趋于稳定")
-    hrv_recent = [v for _, v in hrv_list[-5:]]
-    if len(hrv_recent) >= 3:
-        trend_text += "  |  HRV回升中" if hrv_recent[-1] > hrv_recent[0] else "" if abs(hrv_recent[-1] - hrv_recent[0]) < 3 else "  |  HRV持续走低"
-    return {"hrv_raw": {"last_night": ln, "weekly_avg": wa, "status": st},
-            "rhr_raw": rhr,
-            "sleep_raw": {"total_seconds": ts, "deep_seconds": deep, "rem_seconds": rem,
-                           "awake_count": awake, "garmin_sleep_score": ss_val, "date_used": y},
-            "readiness_raw": {"score": rscore, "level": rlevel},
-            "history": {"hrv_14d": [{"date": d, "value": v} for d, v in hrv_list],
-                        "rhr_28d": [{"date": d, "value": v} for d, v in rhr_list],
-                        "sleep_7d": [{"date": d, "total_sec": t, "deep_sec": dp, "awake": aw}
-                                      for d, t, dp, aw in sleep_list],
-                        "readiness_7d": [{"date": d, "score": sc, "level": lv}
-                                          for d, sc, lv in rd_list]},
-            "profile": {"vo2max": vo2max, "bmi": bmi, "device": device_name,
-                        "fitness_age": fage, "chronological_age": cage,
-                        "training_status_phrase": status_phrase, "acwr_percent": acwr},
-            "race_predictions": {k: {"minutes": v, "formatted": f"{v//60}h{v%60:02d}"}
-                                  for k, v in race_pred.items()},
-            "trend": {"readiness_direction": trend_text,
-                      "readiness_last_3": recent_rd if recent_rd else []}}
+def db_data(target_date=None):
+    """从本地fitness_v3.db读取真实Garmin数据"""
+    db_path = "D:/Garmin/Garmin/garmin-fitness-v3/data/fitness_v3.db"
+    conn = sqlite3.connect(db_path); cursor = conn.cursor()
 
+    # Find the latest date with data
+    cursor.execute("SELECT date, hrv_last_night_avg, resting_hr, sleep_score FROM daily_health ORDER BY date DESC LIMIT 1")
+    latest = cursor.fetchone()
+    if not latest:
+        conn.close(); return None
 
+    target = target_date or latest[0]
+    print(f"[db] Using data from {target} (latest available: {latest[0]})")
+
+    # Get target date entry
+    cursor.execute(f'SELECT * FROM daily_health WHERE date = ?', (target,))
+    cols = [c[0] for c in cursor.description]
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute(f'SELECT * FROM daily_health WHERE date = ?', (latest[0],))
+        row = cursor.fetchone()
+        target = latest[0]
+    l = dict(zip(cols, row))
+
+    # Calculate awake_count from awake_sleep_seconds (rough: each awake event ~5min)
+    awake_sec = l.get('awake_sleep_seconds') or 0
+    awake_cnt = min(int(awake_sec / 300), 10) if awake_sec > 0 else 0
+
+    # Get 14d HRV history
+    cursor.execute("SELECT date, hrv_last_night_avg FROM daily_health WHERE hrv_last_night_avg IS NOT NULL ORDER BY date DESC LIMIT 14")
+    hrv_rows = cursor.fetchall()
+
+    # Get 28d RHR history
+    cursor.execute("SELECT date, resting_hr FROM daily_health WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 28")
+    rhr_rows = cursor.fetchall()
+
+    # Get 7d sleep
+    cursor.execute("SELECT date, sleep_seconds, deep_sleep_seconds, sleep_score FROM daily_health ORDER BY date DESC LIMIT 7")
+    sleep_rows = cursor.fetchall()
+
+    # Get 7d readiness (use training_load as proxy)
+    cursor.execute("SELECT date, training_readiness_score, training_readiness_level FROM daily_health ORDER BY date DESC LIMIT 7")
+    rd_rows = cursor.fetchall()
+
+    conn.close()
+
+    return {
+        "data_date": target,
+        "latest_db_date": latest[0],
+        "hrv_raw": {"last_night": l.get("hrv_last_night_avg") or 0, "weekly_avg": l.get("hrv_weekly_avg") or 0, "status": l.get("hrv_status") or ""},
+        "rhr_raw": l.get("resting_hr") or 0,
+        "sleep_raw": {"total_seconds": int(l.get("sleep_seconds") or 0), "deep_seconds": int(l.get("deep_sleep_seconds") or 0), "rem_seconds": int(l.get("rem_sleep_seconds") or 0), "awake_count": awake_cnt, "garmin_sleep_score": l.get("sleep_score")},
+        "readiness_raw": {"score": l.get("training_readiness_score") or 0, "level": l.get("training_readiness_level") or ""},
+        "history": {
+            "hrv_14d": [{"date": d, "value": v} for d, v in hrv_rows if v],
+            "rhr_28d": [{"date": d, "value": v} for d, v in rhr_rows if v],
+            "sleep_7d": [{"date": d, "total_sec": int(t or 0), "deep_sec": int(dp or 0), "garmin_score": ss} for d, t, dp, ss in sleep_rows if t],
+            "readiness_7d": [{"date": d, "score": int(sc or 0), "level": lv or ""} for d, sc, lv in rd_rows if sc]
+        },
+        "profile": {"vo2max": l.get("vo2_max") or "", "bmi": l.get("bmi"), "device": "Forerunner 955 Solar",
+                    "fitness_age": "", "chronological_age": "",
+                    "training_status_phrase": l.get("training_status") or "RECOVERY",
+                    "acwr_percent": l.get("training_load") or 0,
+                    "total_steps": l.get("total_steps") or 0,
+                    "total_distance_m": l.get("total_distance_m") or 0,
+                    "active_calories": l.get("active_kcal") or 0,
+                    "avg_stress": l.get("avg_stress_level"),
+                    "max_stress": l.get("max_stress_level"),
+                    "min_hr": l.get("min_hr"),
+                    "max_hr": l.get("max_hr"),
+                    "body_battery_charged": l.get("body_battery_charged"),
+                    "body_battery_drained": l.get("body_battery_drained"),
+                    "avg_spo2": l.get("avg_spo2")},
+        "race_predictions": {},
+        "trend": {"readiness_direction": "", "readiness_last_3": []}
+    }
 
 def main():
-    """计算所有KPI并输出JSON"""
     import argparse
     parser = argparse.ArgumentParser(description="Compute all KPIs from Garmin data")
+    parser.add_argument("--date", "-d", type=str, help="Target date YYYY-MM-DD (default: latest available)")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     parser.add_argument("--output", "-o", type=str, help="Output JSON file path")
     args = parser.parse_args()
@@ -325,26 +223,24 @@ def main():
         "references_count": 24
     }
 
-    from garmin_agent.client import GarminClient
-    client = GarminClient()
-    if not client.connect():
-        result["error"] = "Garmin\u8fde\u63a5\u5931\u8d25\uff0c\u68c0\u67e5 .env \u914d\u7f6e"
+    # Read from local database (fitness_v3.db contains the user's real Garmin data)
+    data = db_data(args.date)
+    if data:
+        result["data_source"] = f"local_db ({data['data_date']})"
+        result["latest_db_date"] = data["latest_db_date"]
+    else:
+        result["error"] = "本地数据库不存在或无数据"
         print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
         return 1
-    data = fetch_data(client, today)
-    result["data_source"] = "garmin_api"
 
     result["raw_inputs"] = {
-        "hrv": data["hrv_raw"],
-        "rhr": {"current_bpm": data["rhr_raw"]},
-        "sleep": data["sleep_raw"],
-        "readiness": data["readiness_raw"],
-        "profile": data["profile"],
-        "race_predictions": data["race_predictions"]
+        "hrv": data["hrv_raw"], "rhr": {"current_bpm": data["rhr_raw"]},
+        "sleep": data["sleep_raw"], "readiness": data["readiness_raw"],
+        "profile": data["profile"], "race_predictions": data["race_predictions"]
     }
     result["history"] = data["history"]
 
-    # baselines
+    # Baselines
     rv = [v for v in [h["value"] for h in data["history"]["hrv_14d"]] if v > 0]
     hrv_baseline_7d = round(sum(rv) / len(rv)) if rv else data["hrv_raw"]["weekly_avg"]
     rhr_vals = [h["value"] for h in data["history"]["rhr_28d"]]
@@ -354,25 +250,18 @@ def main():
     deep_pcts = [(h["deep_sec"] / h["total_sec"] * 100) for h in data["history"]["sleep_7d"] if h["total_sec"] > 0]
     deep_base_7d = round(sum(deep_pcts) / len(deep_pcts), 1) if deep_pcts else 0
     result["baselines"] = {
-        "hrv_baseline_7d": hrv_baseline_7d,
-        "rhr_baseline_28d": rhr_baseline_28d,
-        "sleep_baseline_7d": {"total_seconds": sleep_base_7d,
-                              "total_hours": round(sleep_base_7d / 3600, 2),
-                              "deep_pct_avg": deep_base_7d},
-        "formulas": {
-            "hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014",
-            "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003",
-            "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004"
-        }
+        "hrv_baseline_7d": hrv_baseline_7d, "rhr_baseline_28d": rhr_baseline_28d,
+        "sleep_baseline_7d": {"total_seconds": sleep_base_7d, "total_hours": round(sleep_base_7d / 3600, 2), "deep_pct_avg": deep_base_7d},
+        "formulas": {"hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014",
+                      "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003",
+                      "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004"}
     }
 
-    # scores
+    # Scores
     hrv = score_hrv_vars(data["hrv_raw"]["last_night"] or data["hrv_raw"]["weekly_avg"], hrv_baseline_7d)
     rhr_sc = score_rhr_vars(data["rhr_raw"], rhr_baseline_28d)
-    sleep_sc = score_sleep_vars(data["sleep_raw"]["total_seconds"],
-                                data["sleep_raw"]["deep_seconds"],
-                                data["sleep_raw"]["rem_seconds"],
-                                data["sleep_raw"]["awake_count"],
+    sleep_sc = score_sleep_vars(data["sleep_raw"]["total_seconds"], data["sleep_raw"]["deep_seconds"],
+                                data["sleep_raw"]["rem_seconds"], data["sleep_raw"]["awake_count"],
                                 data["sleep_raw"]["garmin_sleep_score"])
     rd_sc = score_readiness_vars(data["readiness_raw"]["score"])
     result["dimension_scores"] = {"hrv": hrv, "rhr": rhr_sc, "sleep": sleep_sc, "readiness": rd_sc}
@@ -384,18 +273,15 @@ def main():
     rhr_dev = rhr_sc["deviation"]
     sleep_h = data["sleep_raw"]["total_seconds"] / 3600 if data["sleep_raw"]["total_seconds"] else 0
     awake_cnt = data["sleep_raw"]["awake_count"]
-    deep_pct = (data["sleep_raw"]["deep_seconds"] / data["sleep_raw"]["total_seconds"] * 100
-                if data["sleep_raw"]["total_seconds"] > 0 else 0)
+    deep_pct = (data["sleep_raw"]["deep_seconds"] / data["sleep_raw"]["total_seconds"] * 100 if data["sleep_raw"]["total_seconds"] > 0 else 0)
     result["multi_dimension_validation"] = cross_dimension_validation(hrv_pct, rhr_dev, sleep_h, awake_cnt, deep_pct)
     result["trend"] = data["trend"]
     result["derived_metrics_summary"] = {
-        "hrv_pct_change": hrv.get("pct_change_pct"),
-        "hrv_ln_change": hrv.get("pct_change"),
-        "rhr_deviation_bpm": rhr_dev,
-        "sleep_total_hours": round(sleep_h, 2) if sleep_h else 0,
+        "hrv_pct_change": hrv.get("pct_change_pct"), "hrv_ln_change": hrv.get("pct_change"),
+        "rhr_deviation_bpm": rhr_dev, "sleep_total_hours": round(sleep_h, 2) if sleep_h else 0,
         "sleep_deep_pct": round(deep_pct, 2) if deep_pct else 0,
         "sleep_rem_pct": round(data["sleep_raw"]["rem_seconds"] / data["sleep_raw"]["total_seconds"] * 100, 2) if data["sleep_raw"]["total_seconds"] > 0 else 0,
-        "acwr_percent": data["profile"]["acwr_percent"],
+        "acwr_percent": data["profile"]["acwr_percent"] if isinstance(data["profile"]["acwr_percent"], (int, float)) else 0,
         "readiness_score_original": data["readiness_raw"]["score"]
     }
 

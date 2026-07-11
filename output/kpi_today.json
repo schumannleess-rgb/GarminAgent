@@ -4,53 +4,275 @@
   "script_version": "1.0",
   "design_doc": "docs/design-morning-advisor.md",
   "references_count": 24,
-  "mock_mode": false,
-  "data_source": "garmin_api",
+  "data_source": "local_db (2026-03-27)",
+  "latest_db_date": "2026-03-27",
   "raw_inputs": {
     "hrv": {
-      "last_night": 0,
-      "weekly_avg": 0,
-      "status": ""
+      "last_night": 48.0,
+      "weekly_avg": 44.0,
+      "status": "UNBALANCED"
     },
     "rhr": {
-      "current_bpm": 0
+      "current_bpm": 48
     },
     "sleep": {
-      "total_seconds": 0,
-      "deep_seconds": 0,
-      "rem_seconds": 0,
-      "awake_count": 0,
-      "garmin_sleep_score": null,
-      "date_used": "2026-07-10"
+      "total_seconds": 21960,
+      "deep_seconds": 7500,
+      "rem_seconds": 6600,
+      "awake_count": 1,
+      "garmin_sleep_score": 80
     },
     "readiness": {
       "score": 0,
       "level": ""
     },
     "profile": {
-      "vo2max": "",
+      "vo2max": 47.0,
       "bmi": null,
-      "device": "Garmin",
+      "device": "Forerunner 955 Solar",
       "fitness_age": "",
       "chronological_age": "",
       "training_status_phrase": "RECOVERY",
-      "acwr_percent": 0
+      "acwr_percent": 1307.1691,
+      "total_steps": 8689,
+      "total_distance_m": 6496.0,
+      "active_calories": 274.0,
+      "avg_stress": 17.0,
+      "max_stress": 84,
+      "min_hr": 46,
+      "max_hr": 159,
+      "body_battery_charged": null,
+      "body_battery_drained": null,
+      "avg_spo2": null
     },
     "race_predictions": {}
   },
   "history": {
-    "hrv_14d": [],
-    "rhr_28d": [],
-    "sleep_7d": [],
+    "hrv_14d": [
+      {
+        "date": "2026-03-27",
+        "value": 48.0
+      },
+      {
+        "date": "2026-03-26",
+        "value": 45.0
+      },
+      {
+        "date": "2026-03-25",
+        "value": 53.0
+      },
+      {
+        "date": "2026-03-24",
+        "value": 43.0
+      },
+      {
+        "date": "2026-03-23",
+        "value": 37.0
+      },
+      {
+        "date": "2026-03-22",
+        "value": 49.0
+      },
+      {
+        "date": "2026-03-21",
+        "value": 35.0
+      },
+      {
+        "date": "2026-03-20",
+        "value": 61.0
+      },
+      {
+        "date": "2026-03-19",
+        "value": 50.0
+      },
+      {
+        "date": "2026-03-18",
+        "value": 62.0
+      },
+      {
+        "date": "2026-03-17",
+        "value": 54.0
+      },
+      {
+        "date": "2026-03-16",
+        "value": 43.0
+      },
+      {
+        "date": "2026-03-15",
+        "value": 52.0
+      },
+      {
+        "date": "2026-03-14",
+        "value": 57.0
+      }
+    ],
+    "rhr_28d": [
+      {
+        "date": "2026-03-27",
+        "value": 48
+      },
+      {
+        "date": "2026-03-26",
+        "value": 50
+      },
+      {
+        "date": "2026-03-25",
+        "value": 46
+      },
+      {
+        "date": "2026-03-24",
+        "value": 51
+      },
+      {
+        "date": "2026-03-23",
+        "value": 52
+      },
+      {
+        "date": "2026-03-22",
+        "value": 52
+      },
+      {
+        "date": "2026-03-21",
+        "value": 52
+      },
+      {
+        "date": "2026-03-20",
+        "value": 49
+      },
+      {
+        "date": "2026-03-19",
+        "value": 44
+      },
+      {
+        "date": "2026-03-18",
+        "value": 46
+      },
+      {
+        "date": "2026-03-17",
+        "value": 49
+      },
+      {
+        "date": "2026-03-16",
+        "value": 52
+      },
+      {
+        "date": "2026-03-15",
+        "value": 50
+      },
+      {
+        "date": "2026-03-14",
+        "value": 46
+      },
+      {
+        "date": "2026-03-13",
+        "value": 46
+      },
+      {
+        "date": "2026-03-12",
+        "value": 53
+      },
+      {
+        "date": "2026-03-11",
+        "value": 52
+      },
+      {
+        "date": "2026-03-10",
+        "value": 50
+      },
+      {
+        "date": "2026-03-09",
+        "value": 48
+      },
+      {
+        "date": "2026-03-08",
+        "value": 55
+      },
+      {
+        "date": "2026-03-07",
+        "value": 50
+      },
+      {
+        "date": "2026-03-06",
+        "value": 53
+      },
+      {
+        "date": "2026-03-05",
+        "value": 54
+      },
+      {
+        "date": "2026-03-04",
+        "value": 51
+      },
+      {
+        "date": "2026-03-03",
+        "value": 49
+      },
+      {
+        "date": "2026-03-02",
+        "value": 50
+      },
+      {
+        "date": "2026-03-01",
+        "value": 51
+      },
+      {
+        "date": "2026-02-28",
+        "value": 51
+      }
+    ],
+    "sleep_7d": [
+      {
+        "date": "2026-03-27",
+        "total_sec": 21960,
+        "deep_sec": 7500,
+        "garmin_score": 80
+      },
+      {
+        "date": "2026-03-26",
+        "total_sec": 20257,
+        "deep_sec": 5040,
+        "garmin_score": 71
+      },
+      {
+        "date": "2026-03-25",
+        "total_sec": 29700,
+        "deep_sec": 7800,
+        "garmin_score": 96
+      },
+      {
+        "date": "2026-03-24",
+        "total_sec": 29751,
+        "deep_sec": 5580,
+        "garmin_score": 86
+      },
+      {
+        "date": "2026-03-23",
+        "total_sec": 20520,
+        "deep_sec": 7500,
+        "garmin_score": 72
+      },
+      {
+        "date": "2026-03-22",
+        "total_sec": 16080,
+        "deep_sec": 4800,
+        "garmin_score": 52
+      },
+      {
+        "date": "2026-03-21",
+        "total_sec": 22560,
+        "deep_sec": 5940,
+        "garmin_score": 76
+      }
+    ],
     "readiness_7d": []
   },
   "baselines": {
-    "hrv_baseline_7d": 0,
-    "rhr_baseline_28d": 0,
+    "hrv_baseline_7d": 49,
+    "rhr_baseline_28d": 50,
     "sleep_baseline_7d": {
-      "total_seconds": 0,
-      "total_hours": 0.0,
-      "deep_pct_avg": 0
+      "total_seconds": 22975,
+      "total_hours": 6.38,
+      "deep_pct_avg": 28.1
     },
     "formulas": {
       "hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014",
@@ -60,21 +282,58 @@
   },
   "dimension_scores": {
     "hrv": {
-      "last_night_ms": 0,
-      "weekly_avg_ms": 0,
-      "fallback_used": true,
-      "score": 75,
-      "zone": "FALLBACK",
-      "ln_last_night": null,
-      "ln_baseline": null,
-      "pct_change": null,
-      "pct_change_pct": null
+      "last_night_ms": 48.0,
+      "weekly_avg_ms": 49,
+      "fallback_used": false,
+      "ln_last_night": 3.8712,
+      "ln_baseline": 3.8918,
+      "pct_change": -0.005298,
+      "pct_change_pct": -0.53,
+      "anchors": [
+        {
+          "pct_change": 0.1,
+          "score": 70,
+          "label": "spike"
+        },
+        {
+          "pct_change": 0.05,
+          "score": 85,
+          "label": "green_high"
+        },
+        {
+          "pct_change": 0.0,
+          "score": 75,
+          "label": "green_normal_mid"
+        },
+        {
+          "pct_change": -0.05,
+          "score": 60,
+          "label": "green_low_yellow_high"
+        },
+        {
+          "pct_change": -0.08,
+          "score": 40,
+          "label": "yellow_low_red_high"
+        },
+        {
+          "pct_change": -0.15,
+          "score": 10,
+          "label": "red_deep"
+        },
+        {
+          "pct_change": -0.2,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 73,
+      "zone": "GREEN_NORMAL"
     },
     "rhr": {
-      "current_bpm": 0,
-      "baseline_bpm": 0,
-      "deviation": 0,
-      "deviation_bpm": "+0 bpm",
+      "current_bpm": 48,
+      "baseline_bpm": 50,
+      "deviation": -2,
+      "deviation_bpm": "-2 bpm",
       "anchors": [
         {
           "deviation_bpm": -3,
@@ -102,47 +361,17 @@
           "label": "severe"
         }
       ],
-      "score": 75,
-      "zone": "NORMAL"
+      "score": 88,
+      "zone": "LOW"
     },
     "sleep": {
-      "total_seconds": 0,
-      "deep_seconds": 0,
-      "rem_seconds": 0,
-      "awake_count": 0,
-      "garmin_score_used": false,
-      "total_hours": 0.0,
-      "deep_pct": 0,
-      "rem_pct": 0,
-      "sub_scores": {
-        "duration": {
-          "value": 10,
-          "zone": "SEVERE_SHORT",
-          "weight": 0.3
-        },
-        "deep": {
-          "value": 20,
-          "zone": "SEVERE_LOW",
-          "weight": 0.35
-        },
-        "rem": {
-          "value": 30,
-          "zone": "LOW",
-          "weight": 0.15
-        },
-        "awake": {
-          "value": 100,
-          "zone": "NONE",
-          "weight": 0.2
-        }
-      },
-      "weights": {
-        "duration": 0.3,
-        "deep": 0.35,
-        "rem": 0.15,
-        "awake": 0.2
-      },
-      "score": 34
+      "total_seconds": 21960,
+      "deep_seconds": 7500,
+      "rem_seconds": 6600,
+      "awake_count": 1,
+      "garmin_score_used": true,
+      "score": 80,
+      "sub_scores": {}
     },
     "readiness": {
       "original_score": 0,
@@ -151,22 +380,22 @@
     }
   },
   "composite": {
-    "recovery_score": 51,
+    "recovery_score": 67,
     "weights": {
       "hrv": 0.35,
       "sleep": 0.3,
       "rhr": 0.2,
       "readiness": 0.15
     },
-    "grade": "D",
-    "label": "🟠 恢复不足",
-    "zone": "POOR",
+    "grade": "C",
+    "label": "🟡 需要注意",
+    "zone": "CAUTION",
     "calculation_steps": [
-      "HRV: 75 x 0.35 = 26.25",
-      "Sleep: 34 x 0.30 = 10.20",
-      "RHR: 75 x 0.20 = 15.00",
+      "HRV: 73 x 0.35 = 25.55",
+      "Sleep: 80 x 0.30 = 24.00",
+      "RHR: 88 x 0.20 = 17.60",
       "Readiness: 0 x 0.15 = 0.00",
-      "Total: 51.45 -> 51"
+      "Total: 67.15 -> 67"
     ],
     "formula": "recovery = HRV x 0.35 + Sleep x 0.30 + RHR x 0.20 + Readiness x 0.15",
     "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003"
@@ -218,13 +447,13 @@
     "readiness_last_3": []
   },
   "derived_metrics_summary": {
-    "hrv_pct_change": null,
-    "hrv_ln_change": null,
-    "rhr_deviation_bpm": 0,
-    "sleep_total_hours": 0.0,
-    "sleep_deep_pct": 0,
-    "sleep_rem_pct": 0,
-    "acwr_percent": 0,
+    "hrv_pct_change": -0.53,
+    "hrv_ln_change": -0.005298,
+    "rhr_deviation_bpm": -2,
+    "sleep_total_hours": 6.1,
+    "sleep_deep_pct": 34.15,
+    "sleep_rem_pct": 30.05,
+    "acwr_percent": 1307.1691,
     "readiness_score_original": 0
   }
 }
