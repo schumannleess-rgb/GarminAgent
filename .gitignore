@@ -58,3 +58,5 @@ Thumbs.db
 # 报表输出文件（运行时生成）
 scripts/report/output/
 report_output/
+docs/*.token
+docs/*.json
