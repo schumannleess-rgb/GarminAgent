@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """compute_all_kpis: 计算所有KPI并输出完整JSON"""
-import json, sys, math, sqlite3
+import json, sys, math, sqlite3, os
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -131,7 +131,7 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
 
 def db_data(target_date=None):
     """从本地fitness_v3.db读取真实Garmin数据"""
-    db_path = "D:/Garmin/Garmin/garmin-fitness-v3/data/fitness_v3.db"
+    db_path = os.getenv("FITNESS_DB_PATH", "")
     conn = sqlite3.connect(db_path); cursor = conn.cursor()
 
     # Find the latest date with data
