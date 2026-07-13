@@ -132,6 +132,8 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
 def db_data(target_date=None):
     """从本地fitness_v3.db读取真实Garmin数据"""
     db_path = os.getenv("FITNESS_DB_PATH", "")
+    if not db_path or not Path(db_path).exists():
+        return None
     conn = sqlite3.connect(db_path); cursor = conn.cursor()
 
     # Find the latest date with data
