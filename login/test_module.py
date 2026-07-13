@@ -1,15 +1,7 @@
-"""Test the garmin_login module.
+"""Test the garmin_login module."""
 
-Usage:
-    Set environment variables before running:
-        $env:GARMIN_EMAIL = "your@email.com"
-        $env:GARMIN_PASSWORD = "your_password"
-    Or the script will prompt for them.
-"""
-
-import os
 import sys
-
+import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from login.garmin_login import garmin_login
@@ -23,7 +15,7 @@ if not EMAIL or not PASSWORD:
 
 
 def test_credential_login():
-    """First login with credentials (saves tokens to project tokens/ dir)."""
+    """First login with credentials (saves tokens)."""
     print("=== Test 1: Credential login ===")
     garmin = garmin_login(email=EMAIL, password=PASSWORD)
     print(f"  Display: {garmin.display_name}")

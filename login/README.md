@@ -10,14 +10,14 @@ from login.garmin_login import garmin_login
 # 第一次需要账号密码，之后自动从 token 恢复
 garmin = garmin_login(email="your@email.com", password="your_password")
 
-# 不传参数即可自动恢复登录态（token 存在项目 tokens/ 目录下）
+# 不传参数即可自动恢复登录态
 garmin = garmin_login()
 ```
 
 ## 集成到项目
 
 1. 复制 `login/` 目录到你的项目
-2. 确保父目录下有 `python-garminconnect-master/`（依赖库）
+2. 确保已安装 `garminconnect` 依赖：`pip install garminconnect`
 3. 调用：
 
 ```python
@@ -34,7 +34,7 @@ garmin = garmin_login(email="...", password="...")
 |------|------|--------|------|
 | `email` | `str \| None` | `None` | Garmin 账号，首次登录必填 |
 | `password` | `str \| None` | `None` | 密码，首次登录必填 |
-| `tokenstore` | `str` | `项目根目录/tokens/` | token 存储目录 |
+| `tokenstore` | `str` | `~/.garminconnect` | token 存储目录 |
 | `is_cn` | `bool` | `True` | 是否使用中国区 (garmin.cn) |
 
 **返回**: 已认证的 `Garmin` 对象
@@ -85,5 +85,5 @@ steps = garmin.get_steps_data(today)
 ## 依赖
 
 - Python 3.10+
-- `python-garminconnect-master/`（已包含在项目中）
+- `garminconnect`（pip 安装，0.3.4+）
 - `curl_cffi`（可选，提升连接稳定性）
