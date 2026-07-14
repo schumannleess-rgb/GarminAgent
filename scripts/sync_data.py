@@ -254,6 +254,7 @@ def sync_health(client):
             rem = daily.get("remSleepSeconds", 0) or 0
             light = daily.get("lightSleepSeconds", 0) or 0
             awake_sec = daily.get("awakeSleepSeconds", 0) or 0
+            awake_cnt = int(daily.get("awakeCount") or 0)
             score = None
             ss = daily.get("sleepScores", {})
             if isinstance(ss, dict):
@@ -265,6 +266,7 @@ def sync_health(client):
             print(f"    - 深睡: {deep//60}m" if deep else "")
             print(f"    - REM: {rem//60}m" if rem else "")
             print(f"    - 浅睡: {light//60}m" if light else "")
+            print(f"    - 清醒次数: {awake_cnt}")
             print(f"    - 睡眠评分: {score}")
             day_entry.update({
                 "sleep_seconds": sleep_time or None,
@@ -272,6 +274,7 @@ def sync_health(client):
                 "rem_sleep_seconds": rem or None,
                 "light_sleep_seconds": light or None,
                 "awake_sleep_seconds": awake_sec or None,
+                "awake_count": awake_cnt,
                 "sleep_hours": round(sleep_time / 3600, 2) if sleep_time else None,
                 "deep_sleep_hours": round(deep / 3600, 2) if deep else None,
                 "rem_sleep_hours": round(rem / 3600, 2) if rem else None,
@@ -344,8 +347,14 @@ def sync_health(client):
     except Exception as e:
         print(yellow(f"  ⚠️ 压力数据: {e}"))
 
-    # 写入 JSON
-    if day_entry:
+    # 写入 JSON — 至少有一个核心健康指标才写入
+    _CORE_HEALTH_FIELDS = [
+        "sleep_seconds", "hrv_last_night_avg", "resting_hr",
+        "training_readiness_score", "avg_stress_level",
+    ]
+    has_core_data = any(day_entry.get(f) for f in _CORE_HEALTH_FIELDS)
+
+    if day_entry and has_core_data:
         day_entry["synced_at"] = date.today().isoformat()
         day_entry["updated_at"] = date.today().isoformat()
         days[today] = day_entry
@@ -354,7 +363,8 @@ def sync_health(client):
         _save_health_json(health_data)
         print(f"  💾 已写入 {_health_json_path()} ({len(days)} 天)")
     else:
-        print(f"  ℹ️  今日无新数据，跳过写入")
+        missing = [f for f in _CORE_HEALTH_FIELDS if not day_entry.get(f)]
+        print(f"  ⚠️  今日无核心数据（缺: {', '.join(missing)}），跳过写入")
 
 
 if __name__ == "__main__":
