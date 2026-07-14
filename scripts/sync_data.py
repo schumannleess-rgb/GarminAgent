@@ -33,6 +33,12 @@ env_file = PROJECT_ROOT / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
+from garmin_agent.config import DATA_DIR, RUNTIME_DIR
+
+runtime_env_file = RUNTIME_DIR / ".env"
+if runtime_env_file.exists():
+    load_dotenv(runtime_env_file, override=False)
+
 # Logging
 logging.basicConfig(
     level=logging.INFO,
@@ -213,7 +219,7 @@ def main():
 
 
 def _health_json_path() -> Path:
-    return PROJECT_ROOT / "data" / "daily_health.json"
+    return DATA_DIR / "daily_health.json"
 
 
 def _load_health_json() -> dict:

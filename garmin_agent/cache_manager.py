@@ -12,10 +12,12 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict, List, Any
 
+from .config import CACHE_DIR
+
 logger = logging.getLogger(__name__)
 
-# Default cache directory (relative to parent of garmin_agent)
-DEFAULT_CACHE_DIR = Path(__file__).parent.parent / "cache"
+# Default cache directory (private runtime state)
+DEFAULT_CACHE_DIR = CACHE_DIR
 
 # Current classifier version - increment when classification rules change
 CLASSIFIER_VERSION = "1.0"

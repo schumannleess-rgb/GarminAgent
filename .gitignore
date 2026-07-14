@@ -1,3 +1,6 @@
+# 本地运行态（个人数据、token、日志、输出，不提交）
+.local/
+
 # 环境变量 (敏感信息)
 .env
 .env.local
@@ -8,6 +11,8 @@ tokens/
 
 # 缓存文件
 cache/
+data/
+output/
 *.json.bak
 
 # 日志文件
@@ -60,3 +65,7 @@ scripts/report/output/
 report_output/
 docs/*.token
 docs/*.json
+
+# 允许提交脱敏测试样例
+!tests/fixtures/
+!tests/fixtures/**

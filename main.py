@@ -17,6 +17,7 @@ if sys.platform == "win32":
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from garmin_agent.config import RUNTIME_DIR, TOKEN_DIR
 from garmin_agent.agent import GarminAgent
 
 # Configure logging
@@ -29,10 +30,15 @@ logger = logging.getLogger(__name__)
 
 def load_config():
     """Load configuration from .env file"""
-    env_file = Path(__file__).parent / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-        logger.info(f"Loaded config from {env_file}")
+    project_root = Path(__file__).parent
+    env_files = [project_root / ".env", RUNTIME_DIR / ".env"]
+    loaded = []
+    for env_file in env_files:
+        if env_file.exists():
+            load_dotenv(env_file, override=False)
+            loaded.append(str(env_file))
+    if loaded:
+        logger.info("Loaded config from %s", ", ".join(loaded))
     else:
         load_dotenv()
         logger.info("Using system environment variables")
@@ -59,7 +65,7 @@ def check_config():
         issues.append("❌ 请在 .env 中填入真实的 API Key")
 
     # Check tokens
-    tokens_dir = Path(__file__).parent / "tokens"
+    tokens_dir = TOKEN_DIR
     if not tokens_dir.exists():
         issues.append("⚠️  缺少 tokens/ 目录，首次登录需要账号密码")
     else:

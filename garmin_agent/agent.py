@@ -24,6 +24,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from pathlib import Path
 
+from .config import LOG_DIR, MEMORY_DIR
 from .client import GarminClient
 from . import formatters
 from .orchestrator import Planner, SandboxExecutor, Plan, SYNTHESIS_PROMPT
@@ -206,10 +207,10 @@ class GarminAgent:
 
         self.client = GarminClient(email=garmin_email, password=garmin_password)
 
-        self._memory_dir = Path(__file__).parent.parent / "memory"
-        self._memory_dir.mkdir(exist_ok=True)
-        self._logs_dir = Path(__file__).parent.parent / "logs"
-        self._logs_dir.mkdir(exist_ok=True)
+        self._memory_dir = MEMORY_DIR
+        self._memory_dir.mkdir(parents=True, exist_ok=True)
+        self._logs_dir = LOG_DIR
+        self._logs_dir.mkdir(parents=True, exist_ok=True)
 
         # 计划生成用低温（确定性决策）
         self.llm = ChatAnthropic(

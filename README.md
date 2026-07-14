@@ -29,8 +29,9 @@ pip install -r requirements.txt
 ### 3. 配置
 
 ```bash
-cp .env.example .env
-# 编辑 .env，填入你的 LLM API Key 和 Garmin 账号
+mkdir .local
+cp .env.example .local/.env
+# 编辑 .local/.env，填入你的 LLM API Key 和 Garmin 账号
 ```
 
 ```bash
@@ -58,7 +59,29 @@ GARMIN_EMAIL=your_email@example.com
 GARMIN_PASSWORD=your_password
 ```
 
-> ⚠️ **安全提示**：`.env` 已在 `.gitignore` 中排除，不会被提交到 Git。不要把 `.env` 上传到公开仓库。
+> ⚠️ **安全提示**：真实 `.env`、token、缓存、日志、同步数据都放在 `.local/` 下，`.local/` 已在 `.gitignore` 中排除，不会提交到公开仓库。
+
+### 本地运行态与公开仓库边界
+
+本项目按三层维护：
+
+```text
+public repo       源码、文档、测试、脱敏 fixtures，可公开发布
+.local/           本机 Garmin token、真实健康数据、缓存、日志、输出，不提交
+private archive   旧备份和历史运行材料，放到仓库外
+```
+
+如果旧版本已经在仓库根目录生成了 `tokens/`、`cache/`、`data/`、`logs/`、`memory/`、`output/`，可以执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/migrate_local_runtime.ps1
+```
+
+发布前执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/preflight_release.ps1
+```
 
 ### 4. 运行
 
@@ -168,6 +191,7 @@ GarminAgent/
 ├── setup.py                # 构建脚本
 ├── requirements.txt        # 依赖
 ├── .env.example            # 配置模板
+├── .local/                 # 本地运行态（不提交）
 ├── Makefile                # 构建快捷命令
 └── README.md
 ```

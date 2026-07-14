@@ -4,6 +4,9 @@ import json, sys, math, os
 from datetime import date, timedelta
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from garmin_agent.config import DATA_DIR
 
 HEALTH_JSON = DATA_DIR / "daily_health.json"
@@ -240,85 +243,6 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
             "zone": zone, "calculation_steps": steps,
             "formula": "recovery = HRV x 0.35 + Sleep x 0.30 + RHR x 0.20 + Readiness x 0.15",
             "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003"}
-
-def db_data(target_date=None):
-    """从本地fitness_v3.db读取真实Garmin数据"""
-    db_path = FITNESS_DB_PATH
-    if not db_path or not Path(db_path).exists():
-        return None
-    conn = sqlite3.connect(db_path); cursor = conn.cursor()
-
-    # Find the latest date with data
-    cursor.execute("SELECT date, hrv_last_night_avg, resting_hr, sleep_score FROM daily_health ORDER BY date DESC LIMIT 1")
-    latest = cursor.fetchone()
-    if not latest:
-        conn.close(); return None
-
-    target = target_date or latest[0]
-    print(f"[db] Using data from {target} (latest available: {latest[0]})")
-
-    # Get target date entry
-    cursor.execute(f'SELECT * FROM daily_health WHERE date = ?', (target,))
-    cols = [c[0] for c in cursor.description]
-    row = cursor.fetchone()
-    if not row:
-        cursor.execute(f'SELECT * FROM daily_health WHERE date = ?', (latest[0],))
-        row = cursor.fetchone()
-        target = latest[0]
-    l = dict(zip(cols, row))
-
-    # Calculate awake_count from awake_sleep_seconds (rough: each awake event ~5min)
-    awake_sec = l.get('awake_sleep_seconds') or 0
-    awake_cnt = min(int(awake_sec / 300), 10) if awake_sec > 0 else 0
-
-    # Get 14d HRV history
-    cursor.execute("SELECT date, hrv_last_night_avg FROM daily_health WHERE hrv_last_night_avg IS NOT NULL ORDER BY date DESC LIMIT 14")
-    hrv_rows = cursor.fetchall()
-
-    # Get 28d RHR history
-    cursor.execute("SELECT date, resting_hr FROM daily_health WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 28")
-    rhr_rows = cursor.fetchall()
-
-    # Get 7d sleep
-    cursor.execute("SELECT date, sleep_seconds, deep_sleep_seconds, sleep_score FROM daily_health ORDER BY date DESC LIMIT 7")
-    sleep_rows = cursor.fetchall()
-
-    # Get 7d readiness (use training_load as proxy)
-    cursor.execute("SELECT date, training_readiness_score, training_readiness_level FROM daily_health ORDER BY date DESC LIMIT 7")
-    rd_rows = cursor.fetchall()
-
-    conn.close()
-
-    return {
-        "data_date": target,
-        "latest_db_date": latest[0],
-        "hrv_raw": {"last_night": l.get("hrv_last_night_avg") or 0, "weekly_avg": l.get("hrv_weekly_avg") or 0, "status": l.get("hrv_status") or ""},
-        "rhr_raw": l.get("resting_hr") or 0,
-        "sleep_raw": {"total_seconds": int(l.get("sleep_seconds") or 0), "deep_seconds": int(l.get("deep_sleep_seconds") or 0), "rem_seconds": int(l.get("rem_sleep_seconds") or 0), "awake_count": awake_cnt, "garmin_sleep_score": l.get("sleep_score")},
-        "readiness_raw": {"score": l.get("training_readiness_score") or 0, "level": l.get("training_readiness_level") or ""},
-        "history": {
-            "hrv_14d": [{"date": d, "value": v} for d, v in hrv_rows if v],
-            "rhr_28d": [{"date": d, "value": v} for d, v in rhr_rows if v],
-            "sleep_7d": [{"date": d, "total_sec": int(t or 0), "deep_sec": int(dp or 0), "garmin_score": ss} for d, t, dp, ss in sleep_rows if t],
-            "readiness_7d": [{"date": d, "score": int(sc or 0), "level": lv or ""} for d, sc, lv in rd_rows if sc]
-        },
-        "profile": {"vo2max": l.get("vo2_max") or "", "bmi": l.get("bmi"), "device": "Forerunner 955 Solar",
-                    "fitness_age": "", "chronological_age": "",
-                    "training_status_phrase": l.get("training_status") or "RECOVERY",
-                    "acwr_percent": l.get("training_load") or 0,
-                    "total_steps": l.get("total_steps") or 0,
-                    "total_distance_m": l.get("total_distance_m") or 0,
-                    "active_calories": l.get("active_kcal") or 0,
-                    "avg_stress": l.get("avg_stress_level"),
-                    "max_stress": l.get("max_stress_level"),
-                    "min_hr": l.get("min_hr"),
-                    "max_hr": l.get("max_hr"),
-                    "body_battery_charged": l.get("body_battery_charged"),
-                    "body_battery_drained": l.get("body_battery_drained"),
-                    "avg_spo2": l.get("avg_spo2")},
-        "race_predictions": {},
-        "trend": {"readiness_direction": "", "readiness_last_3": []}
-    }
 
 def main():
     import argparse

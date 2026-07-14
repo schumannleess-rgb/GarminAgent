@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Optional, List, Dict
 from datetime import date, timedelta
 
+from .config import GARMIN_TOKENSTORE
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +34,7 @@ class GarminClient:
         """
         self.email = email or os.getenv("GARMIN_EMAIL")
         self.password = password or os.getenv("GARMIN_PASSWORD")
-        self.tokenstore = tokenstore
+        self.tokenstore = tokenstore or GARMIN_TOKENSTORE
         self._client = None
         self._authenticated = False
 
