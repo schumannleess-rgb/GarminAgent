@@ -14,14 +14,12 @@ morning_advisor.py — 晨起健康建议引擎
   §4.9  cross_dimension_validation() — 综合指标逻辑验证矩阵
 
 数据源:
-  - Garmin Connect API (实时)
-  - data/daily_health.json (本地回退, 提供历史基线)
+  - data/daily_health.json (本地 JSON, 由 sync_data.py 每日同步)
 
 输出: 结构化 JSON, 供报告层 (morning_report.py / daily_report.py 等) 消费。
 
 用法:
   python scripts/morning_advisor.py [--date 2026-07-14] [--pretty] [--output result.json]
-  python scripts/morning_advisor.py --no-api          # 跳过 API, 只用本地数据
 
 参考: docs/design-morning-advisor.md v1.0 (2026-07-09)
 """
@@ -230,7 +228,7 @@ def compute_baselines(
         hrv_14d:    [{date, value}, ...]  最多 14 条, 降序
         rhr_28d:    [{date, value}, ...]  最多 28 条, 降序
         sleep_7d:   [{date, total_sec, deep_sec}, ...] 最多 7 条, 降序
-        fallback_hrv_weekly_avg: API 无基线时回退值
+        fallback_hrv_weekly_avg: JSON 无 weekly_avg 时的回退值
 
     返回:
         {
@@ -818,167 +816,8 @@ def cross_dimension_validation(
 
 
 # ===========================================================================
-#  数据获取层 (API + DB fallback)
+#  数据获取层 (JSON 本地数据)
 # ===========================================================================
-
-def fetch_from_api(target_date: str, client) -> dict:
-    """从 Garmin API 获取当日健康数据 + 14d HRV / 28d RHR / 7d 睡眠 / 7d 准备度历史。"""
-    from garmin_agent.client import GarminClient
-
-    today = date.fromisoformat(target_date)
-
-    # ---- 当日睡眠 ----
-    sleep_raw = {"total_seconds": 0, "deep_seconds": 0, "rem_seconds": 0,
-                 "awake_count": 0, "garmin_sleep_score": None}
-    try:
-        sd = client.get_sleep_data(target_date)
-        if isinstance(sd, list):
-            sd = sd[0] if sd else {}
-        dto = sd.get("dailySleepDTO", {}) or {}
-        ts = dto.get("sleepTimeSeconds") or 0
-        if ts > 0:
-            sleep_raw = {
-                "total_seconds": int(ts),
-                "deep_seconds":  int(dto.get("deepSleepSeconds") or 0),
-                "rem_seconds":   int(dto.get("remSleepSeconds") or 0),
-                "awake_count":   int(dto.get("awakeCount") or 0),
-                "garmin_sleep_score": _extract_garmin_sleep_score(dto),
-            }
-    except Exception as exc:
-        logger.warning("[API] 睡眠获取失败: %s", exc)
-
-    # ---- 当日 HRV ----
-    hrv_raw = {"last_night": 0, "weekly_avg": 0, "status": ""}
-    try:
-        hrv = client.get_hrv_data(target_date)
-        if isinstance(hrv, dict) and hrv.get("hrvSummary"):
-            hs = hrv["hrvSummary"]
-            hrv_raw = {
-                "last_night": hs.get("lastNightAvg") or 0,
-                "weekly_avg": hs.get("weeklyAvg") or 0,
-                "status":     hs.get("status") or "",
-            }
-    except Exception as exc:
-        logger.warning("[API] HRV 获取失败: %s", exc)
-
-    # ---- 当日 RHR ----
-    rhr = 0
-    try:
-        rr = client.get_rhr_day(target_date)
-        if isinstance(rr, dict):
-            mm = rr.get("allMetrics", {}).get("metricsMap", {})
-            for k, v in mm.items():
-                if "RESTING" in k and v and isinstance(v, list):
-                    rhr = int(v[0].get("value") or 0)
-                    break
-    except Exception as exc:
-        logger.warning("[API] RHR 获取失败: %s", exc)
-
-    # ---- 当日准备度 ----
-    readiness_val = 0
-    readiness_level = ""
-    try:
-        rd = client.get_training_readiness(target_date)
-        if isinstance(rd, list) and rd:
-            readiness_val = int(rd[0].get("score") or rd[0].get("trainingReadinessScore") or 0)
-            readiness_level = rd[0].get("level") or ""
-    except Exception as exc:
-        logger.warning("[API] 准备度获取失败: %s", exc)
-
-    # ---- 当日压力 ----
-    stress_raw = {"avg_stress_level": 0, "max_stress_level": 0}
-    try:
-        st = client.get_stress_data(target_date)
-        if isinstance(st, dict):
-            stress_raw = {
-                "avg_stress_level": st.get("avgStressLevel") or 0,
-                "max_stress_level": st.get("maxStressLevel") or 0,
-            }
-    except Exception as exc:
-        logger.warning("[API] 压力获取失败: %s", exc)
-
-    # ---- 历史: 14d HRV ----
-    hrv_14d = []
-    for i in range(_HRV_HISTORY_DAYS, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        try:
-            h = client.get_hrv_data(d)
-            s = h.get("hrvSummary", {}) if isinstance(h, dict) else {}
-            v = s.get("lastNightAvg")
-            if v:
-                hrv_14d.append({"date": d, "value": v})
-        except Exception:
-            pass
-
-    # ---- 历史: 28d RHR ----
-    rhr_28d = []
-    for i in range(_RHR_HISTORY_DAYS, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        try:
-            r = client.get_rhr_day(d)
-            mm = r.get("allMetrics", {}).get("metricsMap", {}).get("WELLNESS_RESTING_HEART_RATE", [])
-            for m in mm:
-                if m.get("value"):
-                    rhr_28d.append({"date": d, "value": int(m["value"])})
-                    break
-        except Exception:
-            pass
-
-    # ---- 历史: 7d 睡眠 ----
-    sleep_7d = []
-    for i in range(_SLEEP_HISTORY_DAYS, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        try:
-            s = client.get_sleep_data(d)
-            if isinstance(s, list):
-                s = s[0] if s else {}
-            dto = s.get("dailySleepDTO", {}) or {}
-            ts = dto.get("sleepTimeSeconds") or 0
-            if ts:
-                sleep_7d.append({
-                    "date": d,
-                    "total_sec": int(ts),
-                    "deep_sec":  int(dto.get("deepSleepSeconds") or 0),
-                })
-        except Exception:
-            pass
-
-    # ---- 历史: 7d 准备度 ----
-    rd_7d = []
-    for i in range(_READINESS_HISTORY_DAYS, 0, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        try:
-            r = client.get_training_readiness(d)
-            if isinstance(r, list) and r:
-                sc = r[0].get("score") or 0
-                lv = r[0].get("level") or ""
-                if sc:
-                    rd_7d.append({"date": d, "score": sc, "level": lv})
-        except Exception:
-            pass
-
-    has_data = any([
-        sleep_raw["total_seconds"] > 0, hrv_raw["last_night"] > 0,
-        rhr > 0, readiness_val > 0,
-    ])
-
-    return {
-        "source": "api" if has_data else "api_empty",
-        "has_data": has_data,
-        "date": target_date,
-        "hrv_raw": hrv_raw,
-        "rhr_raw": rhr,
-        "stress_raw": stress_raw,
-        "sleep_raw": sleep_raw,
-        "readiness_raw": {"score": readiness_val, "level": readiness_level},
-        "history": {
-            "hrv_14d": hrv_14d,
-            "rhr_28d": rhr_28d,
-            "sleep_7d": sleep_7d,
-            "readiness_7d": rd_7d,
-        },
-    }
-
 
 def fetch_from_db(target_date: str | None = None) -> dict | None:
     """从 data/daily_health.json 获取数据 + 历史基线。"""
@@ -1080,16 +919,6 @@ def _filter_valid(days: dict, field: str, max_days: int) -> list[dict]:
     return items[:max_days]
 
 
-def _extract_garmin_sleep_score(dto: dict) -> int | None:
-    """从 dailySleepDTO 中提取 Garmin 睡眠评分。"""
-    scores = dto.get("sleepScores")
-    if isinstance(scores, dict):
-        overall = scores.get("overall")
-        if isinstance(overall, dict):
-            return overall.get("value")
-    return None
-
-
 # ===========================================================================
 #  主流程: MorningAdvisor
 # ===========================================================================
@@ -1104,55 +933,17 @@ class MorningAdvisor:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     """
 
-    def __init__(self, date_str: str | None = None, use_api: bool = True):
+    def __init__(self, date_str: str | None = None):
         self.target_date = date_str or date.today().strftime("%Y-%m-%d")
-        self.use_api = use_api
-        self._client = None
 
     # ------------------------------------------------------------------
     #  数据获取
     # ------------------------------------------------------------------
-    def _get_client(self):
-        if self._client is None:
-            from garmin_agent.client import GarminClient
-            self._client = GarminClient()
-        return self._client
-
     def _fetch_data(self) -> dict:
-        """优先 API, 回退 DB。返回统一数据字典。"""
-        api_data = None
-        db_data = None
-
-        # Step 1: API
-        if self.use_api:
-            try:
-                client = self._get_client()
-                if client.connect():
-                    api_data = fetch_from_api(self.target_date, client)
-                    if api_data.get("has_data"):
-                        logger.info("[Step 1] API 返回有效数据")
-                    else:
-                        logger.info("[Step 1] API 返回空数据")
-                else:
-                    logger.info("[Step 1] Garmin 连接失败")
-            except Exception as exc:
-                logger.warning("[Step 1] API 异常: %s", exc)
-
-        # Step 2: DB (用于历史基线, 以及 API 无数据时的回退)
+        """从 data/daily_health.json 获取数据。返回统一数据字典。"""
         db_data = fetch_from_db(self.target_date)
 
-        if api_data and api_data.get("has_data") and db_data:
-            # API 有当日数据, DB 提供历史基线
-            api_data["history"] = db_data["history"]
-            api_data["profile"] = db_data.get("profile", {})
-            api_data["latest_db_date"] = db_data["latest_db_date"]
-            api_data["source"] = "api+db"
-            return api_data
-
         if db_data:
-            # API 无数据, 完全回退 DB
-            db_data.setdefault("history", {})
-            db_data.setdefault("profile", {})
             return db_data
 
         # 无任何数据
@@ -1276,7 +1067,7 @@ class MorningAdvisor:
         如果指定 output_path, 同时写入 JSON 文件。
         """
         print(f"🏃 Morning Advisor — {self.target_date}")
-        print(f"  数据源: API={'enabled' if self.use_api else 'disabled'}")
+        print(f"  数据源: data/daily_health.json")
 
         # 数据
         data = self._fetch_data()
@@ -1319,15 +1110,11 @@ def main():
         description="晨起健康建议引擎 — 复现 design-morning-advisor.md 全部 8 个算法落点",
     )
     parser.add_argument("--date", "-d", type=str, help="目标日期 YYYY-MM-DD (默认今天)")
-    parser.add_argument("--no-api", action="store_true", help="跳过 API, 只用本地数据")
     parser.add_argument("--pretty", "-p", action="store_true", help="美化输出 JSON")
     parser.add_argument("--output", "-o", type=str, help="输出 JSON 文件路径")
     args = parser.parse_args()
 
-    advisor = MorningAdvisor(
-        date_str=args.date,
-        use_api=not args.no_api,
-    )
+    advisor = MorningAdvisor(date_str=args.date)
     result = advisor.run(pretty=args.pretty, output_path=args.output)
 
     if result.get("error"):
