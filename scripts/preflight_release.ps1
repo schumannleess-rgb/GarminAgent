@@ -1,9 +1,12 @@
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string] $RepoRoot
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $RepoRoot) {
+    $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
 Set-Location -LiteralPath $RepoRoot
 
 $failures = @()
@@ -33,7 +36,7 @@ foreach ($file in $tracked) {
     }
     $matches = Select-String -LiteralPath $file -Pattern $secretPattern -AllMatches -ErrorAction SilentlyContinue
     foreach ($match in $matches) {
-        $secretHits += "$file:$($match.LineNumber)"
+        $secretHits += "${file}:$($match.LineNumber)"
     }
 }
 if ($secretHits) {

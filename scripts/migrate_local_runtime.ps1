@@ -1,10 +1,13 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [string] $RepoRoot,
     [string] $RuntimeDir = ".local"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $RepoRoot) {
+    $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
 $repo = (Resolve-Path -LiteralPath $RepoRoot).Path
 $runtime = Join-Path $repo $RuntimeDir
 

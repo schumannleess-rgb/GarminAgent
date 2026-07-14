@@ -1,7 +1,7 @@
 # Makefile for Garmin Agent
 # Supports both macOS and Windows (Git Bash)
 
-.PHONY: setup install run test clean
+.PHONY: setup install run test clean preflight
 
 # Detect platform
 ifeq ($(OS),Windows_NT)
@@ -36,7 +36,7 @@ install: setup
 	@echo "✅ Installation complete!"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Copy .env.example to .env and fill in your credentials"
+	@echo "  1. Copy .env.example to .local/.env and fill in your credentials"
 	@echo "  2. Run: make run (or python main.py)"
 
 # Run the agent
@@ -50,6 +50,10 @@ cli:
 # Quick test (just import check)
 test-import:
 	$(PYTHON) -c "from garmin_agent.agent import GarminAgent; print('✅ Import OK')"
+
+# Release safety check
+preflight:
+	powershell -ExecutionPolicy Bypass -File scripts/preflight_release.ps1
 
 # Clean
 clean:
@@ -68,5 +72,6 @@ help:
 	@echo "  make run       - Run the interactive agent"
 	@echo "  make cli COMMAND=xxx - Run CLI command"
 	@echo "  make test-import - Verify imports work"
+	@echo "  make preflight  - Check release boundary and secrets"
 	@echo "  make clean     - Remove venv and __pycache__"
 	@echo "  make help      - Show this help"
