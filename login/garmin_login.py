@@ -17,6 +17,8 @@ import os
 import sys
 from pathlib import Path
 
+from garmin_agent.config import GARMIN_TOKENSTORE
+
 from garminconnect import (  # noqa: E402
     Garmin,
     GarminConnectAuthenticationError,
@@ -24,7 +26,7 @@ from garminconnect import (  # noqa: E402
     GarminConnectTooManyRequestsError,
 )
 
-DEFAULT_TOKENSTORE = str(Path("~/.garminconnect").expanduser())
+DEFAULT_TOKENSTORE = GARMIN_TOKENSTORE or str(Path("~/.garminconnect").expanduser())
 
 
 def garmin_login(

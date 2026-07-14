@@ -1,10 +1,119 @@
 #!/usr/bin/env python3
 """compute_all_kpis: 计算所有KPI并输出完整JSON"""
-import json, sys, math, sqlite3, os
+import json, sys, math, os
 from datetime import date, timedelta
 from pathlib import Path
 
-def score_hrv_vars(last_night, weekly):
+from garmin_agent.config import DATA_DIR
+
+HEALTH_JSON = DATA_DIR / "daily_health.json"
+
+
+def _load_health_json():
+    """Load daily_health.json, return (metadata, days_dict) or (None, None)."""
+    if not HEALTH_JSON.exists():
+        return None, None
+    with open(HEALTH_JSON, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("metadata", {}), data.get("days", {})
+
+
+def _filter_valid(days, field, max_days):
+    """Return up to max_days entries sorted by date desc where field is not None."""
+    items = [
+        {"date": d, "value": v[field]}
+        for d, v in days.items()
+        if isinstance(v, dict) and v.get(field) is not None
+    ]
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return items[:max_days]
+
+
+def db_data(target_date=None):
+    """从 data/daily_health.json 读取 Garmin 健康数据"""
+    meta, days = _load_health_json()
+    if not days:
+        print("[json] No health data found. Run sync_data.py --health first.")
+        return None
+
+    # Find latest date with any data
+    valid_dates = sorted(days.keys(), reverse=True)
+    latest = valid_dates[0]
+    target = target_date if target_date in days else latest
+    if target not in days:
+        print(f"[json] Date {target} not found, using latest: {latest}")
+        target = latest
+
+    print(f"[json] Using data from {target} (latest available: {latest})")
+
+    l = days[target]
+
+    # Calculate awake_count from awake_sleep_seconds
+    awake_sec = l.get("awake_sleep_seconds") or 0
+    awake_cnt = min(int(awake_sec / 300), 10) if awake_sec > 0 else 0
+
+    # History: filter valid entries
+    hrv_14d = _filter_valid(days, "hrv_last_night_avg", 14)
+    rhr_28d = _filter_valid(days, "resting_hr", 28)
+    sleep_7d = [
+        {"date": d, "total_sec": int(v.get("sleep_seconds") or 0),
+         "deep_sec": int(v.get("deep_sleep_seconds") or 0),
+         "garmin_score": v.get("sleep_score")}
+        for d, v in sorted(days.items(), reverse=True)[:7]
+        if isinstance(v, dict) and v.get("sleep_seconds")
+    ]
+    rd_7d = _filter_valid(days, "training_readiness_score", 7)
+
+    return {
+        "data_date": target,
+        "latest_db_date": latest,
+        "hrv_raw": {
+            "last_night": l.get("hrv_last_night_avg") or 0,
+            "weekly_avg": l.get("hrv_weekly_avg") or 0,
+            "status": l.get("hrv_status") or "",
+        },
+        "rhr_raw": l.get("resting_hr") or 0,
+        "sleep_raw": {
+            "total_seconds": int(l.get("sleep_seconds") or 0),
+            "deep_seconds": int(l.get("deep_sleep_seconds") or 0),
+            "rem_seconds": int(l.get("rem_sleep_seconds") or 0),
+            "awake_count": awake_cnt,
+            "garmin_sleep_score": l.get("sleep_score"),
+        },
+        "readiness_raw": {
+            "score": l.get("training_readiness_score") or 0,
+            "level": l.get("training_readiness_level") or "",
+        },
+        "history": {
+            "hrv_14d": hrv_14d,
+            "rhr_28d": rhr_28d,
+            "sleep_7d": sleep_7d,
+            "readiness_7d": [
+                {"date": r["date"], "score": r["value"], "level": days[r["date"]].get("training_readiness_level", "")}
+                for r in rd_7d
+            ],
+        },
+        "profile": {
+            "vo2max": l.get("vo2_max") or "",
+            "bmi": l.get("bmi"),
+            "device": "Forerunner 955 Solar",
+            "fitness_age": "", "chronological_age": "",
+            "training_status_phrase": l.get("training_status") or "RECOVERY",
+            "acwr_percent": l.get("training_load") or 0,
+            "total_steps": l.get("total_steps") or 0,
+            "total_distance_m": l.get("total_distance_m") or 0,
+            "active_calories": l.get("active_kcal") or 0,
+            "avg_stress": l.get("avg_stress_level"),
+            "max_stress": l.get("max_stress_level"),
+            "min_hr": l.get("min_hr"),
+            "max_hr": l.get("max_hr"),
+            "body_battery_charged": l.get("body_battery_charged"),
+            "body_battery_drained": l.get("body_battery_drained"),
+            "avg_spo2": l.get("avg_spo2"),
+        },
+        "race_predictions": {},
+        "trend": {"readiness_direction": "", "readiness_last_3": []},
+    }
     result = {"last_night_ms": last_night, "weekly_avg_ms": weekly, "fallback_used": False}
     if last_night <= 0 or weekly <= 0:
         result.update({"score": 75, "zone": "FALLBACK", "fallback_used": True,
@@ -131,7 +240,7 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
 
 def db_data(target_date=None):
     """从本地fitness_v3.db读取真实Garmin数据"""
-    db_path = os.getenv("FITNESS_DB_PATH", "")
+    db_path = FITNESS_DB_PATH
     if not db_path or not Path(db_path).exists():
         return None
     conn = sqlite3.connect(db_path); cursor = conn.cursor()

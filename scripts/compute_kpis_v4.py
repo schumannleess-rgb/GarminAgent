@@ -24,6 +24,8 @@ from pathlib import Path
 from datetime import date, timedelta, datetime
 from dotenv import load_dotenv
 
+from garmin_agent.config import FITNESS_DB_PATH
+
 # Setup paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -176,7 +178,7 @@ def compute_recovery(hrv_score, sleep_score, rhr_score, readiness_score):
 # Data Sources
 # ==========================================
 
-DB_PATH = os.getenv("FITNESS_DB_PATH", "")
+DB_PATH = FITNESS_DB_PATH
 
 
 def fetch_from_api(target_date: str, client) -> dict:
