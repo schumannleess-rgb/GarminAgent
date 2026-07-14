@@ -114,6 +114,9 @@ def db_data(target_date=None):
         "race_predictions": {},
         "trend": {"readiness_direction": "", "readiness_last_3": []},
     }
+
+
+def score_hrv_vars(last_night, weekly):
     result = {"last_night_ms": last_night, "weekly_avg_ms": weekly, "fallback_used": False}
     if last_night <= 0 or weekly <= 0:
         result.update({"score": 75, "zone": "FALLBACK", "fallback_used": True,
@@ -334,13 +337,13 @@ def main():
         "references_count": 24
     }
 
-    # Read from local database (fitness_v3.db contains the user's real Garmin data)
+    # Read from data/daily_health.json (synced from Garmin API)
     data = db_data(args.date)
     if data:
-        result["data_source"] = f"local_db ({data['data_date']})"
-        result["latest_db_date"] = data["latest_db_date"]
+        result["data_source"] = f"data/daily_health.json ({data['data_date']})"
+        result["latest_data_date"] = data["latest_db_date"]
     else:
-        result["error"] = "本地数据库不存在或无数据"
+        result["error"] = "无健康数据。请先运行: python scripts/sync_data.py --health"
         print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
         return 1
 

@@ -93,11 +93,11 @@ def run_cli(command):
         # 使用参数列表调用，避免 shell 注入
         import subprocess
         subprocess.run(
-            [python, str(PROJECT_ROOT / 'garmin_cli.py')] + command.split(),
+            [python, str(PROJECT_ROOT / 'scripts' / 'garmin_cli.py')] + command.split(),
             check=True
         )
     else:
-        run_shell(f"{python} {PROJECT_ROOT / 'garmin_cli.py'} --help")
+        run_shell(f"{python} {PROJECT_ROOT / 'scripts' / 'garmin_cli.py'} --help")
 
 
 def test_imports():

@@ -18,22 +18,14 @@ compute_kpis_v4: 基于 Garmin API 实时查询 + V3 数据库历史基线，计
 import json
 import sys
 import math
-import sqlite3
 import logging
 from pathlib import Path
 from datetime import date, timedelta, datetime
 from dotenv import load_dotenv
 
-from garmin_agent.config import FITNESS_DB_PATH
+from garmin_agent.config import DATA_DIR
 
-# Setup paths
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-# Load .env
-env_file = PROJECT_ROOT / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
+HEALTH_JSON = DATA_DIR / "daily_health.json"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logger = logging.getLogger("kpi_v4")
@@ -256,58 +248,66 @@ def fetch_from_api(target_date: str, client) -> dict:
     }
 
 
+def _load_health_json():
+    """Load daily_health.json, return days dict or None."""
+    if not HEALTH_JSON.exists():
+        logger.warning(f"[json] 数据文件不存在: {HEALTH_JSON}")
+        return None
+    with open(HEALTH_JSON, encoding="utf-8") as f:
+        data = json.load(f)
+    days = data.get("days", {})
+    if not days:
+        logger.warning("[json] 数据文件为空")
+        return None
+    return days
+
+
+def _filter_valid(days, field, max_days):
+    """Return up to max_days entries sorted by date desc where field is not None."""
+    items = [
+        {"date": d, "value": v[field]}
+        for d, v in days.items()
+        if isinstance(v, dict) and v.get(field) is not None
+    ]
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return items[:max_days]
+
+
 def fetch_from_db(target_date: str = None) -> dict:
-    """从 V3 数据库获取历史数据"""
-    db_path = DB_PATH
-    if not Path(db_path).exists():
-        logger.warning(f"[DB] 数据库不存在: {db_path}")
+    """从 data/daily_health.json 获取历史数据"""
+    days = _load_health_json()
+    if not days:
         return None
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    valid_dates = sorted(days.keys(), reverse=True)
+    latest = valid_dates[0]
+    target = target_date if target_date in days else latest
+    if target not in days:
+        logger.info(f"[json] {target} 不存在，使用最新: {latest}")
+        target = latest
 
-    # 找最新日期
-    cursor.execute("SELECT date FROM daily_health ORDER BY date DESC LIMIT 1")
-    latest = cursor.fetchone()
-    if not latest:
-        conn.close()
-        return None
+    logger.info(f"[json] 使用数据: {target} (最新: {latest})")
 
-    target = target_date or latest[0]
-    logger.info(f"[DB] 使用数据: {target} (最新: {latest[0]})")
-
-    # 获取目标日期的数据
-    cursor.execute("SELECT * FROM daily_health WHERE date = ?", (target,))
-    cols = [c[0] for c in cursor.description]
-    row = cursor.fetchone()
-    if not row:
-        cursor.execute("SELECT * FROM daily_health WHERE date = ?", (latest[0],))
-        row = cursor.fetchone()
-        target = latest[0]
-    l = dict(zip(cols, row))
+    l = days[target]
 
     # 估算 awake_count
     awake_sec = l.get("awake_sleep_seconds") or 0
     awake_cnt = min(int(awake_sec / 300), 10) if awake_sec > 0 else 0
 
     # 历史数据
-    cursor.execute("SELECT date, hrv_last_night_avg FROM daily_health WHERE hrv_last_night_avg IS NOT NULL ORDER BY date DESC LIMIT 14")
-    hrv_rows = cursor.fetchall()
-
-    cursor.execute("SELECT date, resting_hr FROM daily_health WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 28")
-    rhr_rows = cursor.fetchall()
-
-    cursor.execute("SELECT date, sleep_seconds, deep_sleep_seconds, sleep_score FROM daily_health ORDER BY date DESC LIMIT 7")
-    sleep_rows = cursor.fetchall()
-
-    cursor.execute("SELECT date, training_readiness_score, training_readiness_level FROM daily_health ORDER BY date DESC LIMIT 7")
-    rd_rows = cursor.fetchall()
-
-    conn.close()
+    hrv_rows = _filter_valid(days, "hrv_last_night_avg", 14)
+    rhr_rows = _filter_valid(days, "resting_hr", 28)
+    sleep_rows = [
+        {"date": d, "total_sec": int(v.get("sleep_seconds") or 0),
+         "deep_sec": int(v.get("deep_sleep_seconds") or 0), "garmin_score": v.get("sleep_score")}
+        for d, v in sorted(days.items(), reverse=True)[:7]
+        if isinstance(v, dict) and v.get("sleep_seconds")
+    ]
+    rd_rows = _filter_valid(days, "training_readiness_score", 7)
 
     return {
         "data_date": target,
-        "latest_db_date": latest[0],
+        "latest_db_date": latest,
         "hrv_raw": {
             "last_night": l.get("hrv_last_night_avg") or 0,
             "weekly_avg": l.get("hrv_weekly_avg") or 0,
@@ -326,10 +326,13 @@ def fetch_from_db(target_date: str = None) -> dict:
             "level": l.get("training_readiness_level") or "",
         },
         "history": {
-            "hrv_14d": [{"date": d, "value": v} for d, v in hrv_rows if v],
-            "rhr_28d": [{"date": d, "value": v} for d, v in rhr_rows if v],
-            "sleep_7d": [{"date": d, "total_sec": int(t or 0), "deep_sec": int(dp or 0), "garmin_score": ss} for d, t, dp, ss in sleep_rows if t],
-            "readiness_7d": [{"date": d, "score": int(sc or 0), "level": lv or ""} for d, sc, lv in rd_rows if sc],
+            "hrv_14d": hrv_rows,
+            "rhr_28d": rhr_rows,
+            "sleep_7d": sleep_rows,
+            "readiness_7d": [
+                {"date": r["date"], "score": r["value"], "level": days[r["date"]].get("training_readiness_level", "")}
+                for r in rd_rows
+            ],
         },
         "profile": {
             "vo2max": l.get("vo2_max") or "",
@@ -345,7 +348,7 @@ def fetch_from_db(target_date: str = None) -> dict:
             "min_hr": l.get("min_hr"),
             "max_hr": l.get("max_hr"),
         },
-        "source": "local_db",
+        "source": "local_json",
     }
 
 
@@ -491,15 +494,14 @@ def main():
     else:
         data = {"source": "api_empty", "has_data": False}
 
-    # 第二步：如果 API 无数据，回退到数据库
+    # 第二步：如果 API 无数据，回退到本地数据
     needs_db = not data.get("has_data", False)
     if needs_db:
-        print("\n🗄️  [Step 2] 回退到 V3 数据库...")
+        print("\n📁 [Step 2] 回退到本地数据...")
         db_data = fetch_from_db(args.date)
         if db_data:
-            print(f"  ✅ 使用数据库 {db_data['data_date']} 数据")
+            print(f"  ✅ 使用本地数据 {db_data['data_date']}")
             data["db_fallback"] = db_data
-            # 从数据库获取历史基线数据
             data["history"] = db_data["history"]
             data["profile"] = db_data["profile"]
             data["data_date"] = db_data["data_date"]
@@ -509,22 +511,22 @@ def main():
             data["sleep_raw"] = db_data["sleep_raw"]
             data["readiness_raw"] = db_data["readiness_raw"]
         else:
-            print("  ❌ 数据库无数据")
+            print("  ❌ 本地数据为空")
             result = {"error": "无可用数据源", "date": target_date}
             print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
             return 1
     else:
-        # API 有数据，但需要数据库提供历史基线
-        print("\n🗄️  [Step 2] 从数据库获取历史基线数据...")
+        # API 有数据，但需要本地数据提供历史基线
+        print("\n📁 [Step 2] 从本地数据获取历史基线...")
         db_data = fetch_from_db()
         if db_data:
             data["history"] = db_data["history"]
             data["profile"] = db_data["profile"]
             data["latest_db_date"] = db_data["latest_db_date"]
             data["data_date"] = target_date
-            print(f"  ✅ 基线数据来自数据库 {db_data['latest_db_date']}")
+            print(f"  ✅ 基线数据来自 {db_data['latest_db_date']}")
         else:
-            print(f"  ⚠️  无数据库基线数据，部分评分可能不准确")
+            print(f"  ⚠️  无本地基线数据，部分评分可能不准确")
             data["history"] = {"hrv_14d": [], "rhr_28d": [], "sleep_7d": [], "readiness_7d": []}
             data["profile"] = {}
 

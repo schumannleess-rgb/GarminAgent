@@ -16,10 +16,10 @@ if sys.platform == "win32":
 # Load .env before anything else
 from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Set up a custom handler to capture log records
 class LogCapture(logging.Handler):

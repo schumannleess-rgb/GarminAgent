@@ -118,11 +118,11 @@ Synthesizer (LLM) → 基于数据 + 格式规范 → 生成带解读的回复
 ### CLI 模式
 
 ```bash
-python garmin_cli.py latest      # 最近一次活动
-python garmin_cli.py today       # 今天的活动
-python garmin_cli.py week 2      # 最近2周
-python garmin_cli.py health      # 健康数据
-python garmin_cli.py capacity    # 训练能力
+python scripts/garmin_cli.py latest      # 最近一次活动
+python scripts/garmin_cli.py today       # 今天的活动
+python scripts/garmin_cli.py week 2      # 最近2周
+python scripts/garmin_cli.py health      # 健康数据
+python scripts/garmin_cli.py capacity    # 训练能力
 ```
 
 ---
@@ -149,18 +149,26 @@ GarminAgent/
 │   ├── classifier.py       # 训练类型分类器
 │   ├── cache_manager.py    # 活动分类缓存
 │   ├── cache_sync.py       # 缓存同步
+│   ├── config.py           # 外部路径配置
 │   └── tools/
 │       └── activity_tools.py   # 21个预设工具
 ├── login/
 │   └── garmin_login.py     # Garmin 认证模块
-├── scripts/report/         # 报告生成脚本
-├── docs/
-│   └── agent-inventory.md  # Agent 现状梳理
+├── scripts/
+│   ├── garmin_cli.py       # CLI 入口
+│   ├── sync_data.py        # 数据同步脚本
+│   ├── sync_health_to_db.py # 健康数据入库
+│   ├── compute_kpis_v4.py  # KPI 计算
+│   ├── compute_all_kpis.py # 全量 KPI
+│   ├── morning_report.py   # 晨间报告
+│   └── report/             # 报告生成脚本
+├── tests/                  # 单元测试
+├── docs/                   # 文档
 ├── main.py                 # 入口（交互式）
-├── garmin_cli.py           # CLI 入口
+├── setup.py                # 构建脚本
 ├── requirements.txt        # 依赖
 ├── .env.example            # 配置模板
-├── Makefile / setup.py     # 构建脚本
+├── Makefile                # 构建快捷命令
 └── README.md
 ```
 

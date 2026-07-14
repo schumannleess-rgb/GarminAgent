@@ -45,7 +45,7 @@ run:
 
 # Run the CLI
 cli:
-	$(PYTHON) garmin_cli.py $(COMMAND)
+	$(PYTHON) scripts/garmin_cli.py $(COMMAND)
 
 # Quick test (just import check)
 test-import:

@@ -29,8 +29,8 @@ from datetime import date, timedelta
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-# Setup path
-PROJECT_ROOT = Path(__file__).resolve().parent
+# Setup path (one level up from scripts/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load .env

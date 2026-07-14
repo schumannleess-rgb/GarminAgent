@@ -212,29 +212,67 @@ def main():
     return 0
 
 
+def _health_json_path() -> Path:
+    return PROJECT_ROOT / "data" / "daily_health.json"
+
+
+def _load_health_json() -> dict:
+    path = _health_json_path()
+    if not path.exists():
+        return {"metadata": {"version": "1.0", "last_sync": None, "total_days": 0}, "days": {}}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _save_health_json(data: dict):
+    path = _health_json_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def sync_health(client):
-    """同步当日健康数据"""
+    """同步健康数据：打印 + 写入 data/daily_health.json"""
     today = date.today().strftime("%Y-%m-%d")
+    health_data = _load_health_json()
+    days = health_data.setdefault("days", {})
+    day_entry = {}
 
     # 睡眠
     try:
         sleep = client.get_sleep_data(today)
         if sleep and isinstance(sleep, dict):
             daily = sleep.get("dailySleepDTO", {}) or {}
-            # Try different possible keys
-            sleep_time = daily.get("sleepTimeSeconds", 0) or daily.get("sleepTime", 0) or 0
+            sleep_time = daily.get("sleepTimeSeconds", 0) or 0
             deep = daily.get("deepSleepSeconds", 0) or 0
             rem = daily.get("remSleepSeconds", 0) or 0
             light = daily.get("lightSleepSeconds", 0) or 0
-            awake = daily.get("awakeCount", 0) or 0
-            score = daily.get("sleepScores", {}).get("overall", {}).get("value", "N/A") if isinstance(daily.get("sleepScores"), dict) else "N/A"
+            awake_sec = daily.get("awakeSleepSeconds", 0) or 0
+            score = None
+            ss = daily.get("sleepScores", {})
+            if isinstance(ss, dict):
+                ov = ss.get("overall", {})
+                if isinstance(ov, dict):
+                    score = ov.get("value")
             print(f"  睡眠:")
             print(f"    - 总时长: {sleep_time//3600}h{(sleep_time%3600)//60}m" if sleep_time else "    - 总时长: N/A")
             print(f"    - 深睡: {deep//60}m" if deep else "")
             print(f"    - REM: {rem//60}m" if rem else "")
             print(f"    - 浅睡: {light//60}m" if light else "")
-            print(f"    - 醒来次数: {awake}" if awake else "")
             print(f"    - 睡眠评分: {score}")
+            day_entry.update({
+                "sleep_seconds": sleep_time or None,
+                "deep_sleep_seconds": deep or None,
+                "rem_sleep_seconds": rem or None,
+                "light_sleep_seconds": light or None,
+                "awake_sleep_seconds": awake_sec or None,
+                "sleep_hours": round(sleep_time / 3600, 2) if sleep_time else None,
+                "deep_sleep_hours": round(deep / 3600, 2) if deep else None,
+                "rem_sleep_hours": round(rem / 3600, 2) if rem else None,
+                "light_sleep_hours": round(light / 3600, 2) if light else None,
+                "awake_hours": round(awake_sec / 3600, 2) if awake_sec else None,
+                "sleep_score": score,
+            })
     except Exception as e:
         print(yellow(f"  ⚠️ 睡眠数据: {e}"))
 
@@ -242,14 +280,24 @@ def sync_health(client):
     try:
         hrv = client.get_hrv_data(today)
         if hrv and isinstance(hrv, dict):
-            weekly_avg = hrv.get("weeklyAvg", hrv.get("weeklyAverage", "N/A"))
-            last_night = hrv.get("lastNightAvg", hrv.get("lastNightAverage", hrv.get("lastNight", "N/A")))
-            status = hrv.get("status", "N/A")
+            hs = hrv.get("hrvSummary", {}) or {}
+            weekly_avg = hs.get("weeklyAvg", "N/A")
+            last_night = hs.get("lastNightAvg", "N/A")
+            status = hs.get("status", "N/A")
+            bl = hs.get("baseline", {}) or {}
             print(f"  HRV:")
             print(f"    - 昨晚: {last_night}")
             print(f"    - 周均值: {weekly_avg}")
             if status and status != "N/A":
                 print(f"    - 状态: {status}")
+            day_entry.update({
+                "hrv_last_night_avg": hs.get("lastNightAvg"),
+                "hrv_weekly_avg": hs.get("weeklyAvg"),
+                "hrv_status": hs.get("status"),
+                "hrv_last_night_5min_high": hs.get("lastNight5MinHigh"),
+                "hrv_baseline_low": bl.get("balancedLow"),
+                "hrv_baseline_high": bl.get("balancedUpper"),
+            })
     except Exception as e:
         print(yellow(f"  ⚠️ HRV数据: {e}"))
 
@@ -257,23 +305,50 @@ def sync_health(client):
     try:
         rhr = client.get_rhr_day(today)
         if rhr and isinstance(rhr, dict):
-            val = rhr.get("value", rhr.get("restingHeartRate", rhr.get("rhr", "N/A")))
-            print(f"  静息心率: {val}")
+            mm = rhr.get("allMetrics", {}).get("metricsMap", {})
+            rhr_val = None
+            for k, v in mm.items():
+                if "RESTING" in k and v and isinstance(v, list):
+                    rhr_val = v[0].get("value")
+                    break
+            print(f"  静息心率: {rhr_val}")
+            day_entry["resting_hr"] = int(rhr_val) if rhr_val else None
     except Exception as e:
         print(yellow(f"  ⚠️ 静息心率: {e}"))
 
     # 训练准备度
     try:
         readiness = client.get_training_readiness(today)
-        if readiness:
-            if isinstance(readiness, list) and len(readiness) > 0:
-                r = readiness[0]
-                score = r.get("score", r.get("trainingReadinessScore", "N/A"))
-                print(f"  训练准备度: {score}")
-            elif isinstance(readiness, dict):
-                print(f"  训练准备度: {readiness.get('score', readiness.get('trainingReadinessScore', 'N/A'))}")
+        if readiness and isinstance(readiness, list) and len(readiness) > 0:
+            r = readiness[0]
+            score = r.get("score") or r.get("trainingReadinessScore", "N/A")
+            level = r.get("level") or r.get("trainingReadinessLevel", "")
+            print(f"  训练准备度: {score} ({level})")
+            day_entry["training_readiness_score"] = int(score) if score != "N/A" else None
+            day_entry["training_readiness_level"] = level or None
     except Exception as e:
         print(yellow(f"  ⚠️ 训练准备度: {e}"))
+
+    # 压力
+    try:
+        stress = client.get_stress_data(today)
+        if stress:
+            day_entry["avg_stress_level"] = stress.get("avgStressLevel")
+            day_entry["max_stress_level"] = stress.get("maxStressLevel")
+    except Exception as e:
+        print(yellow(f"  ⚠️ 压力数据: {e}"))
+
+    # 写入 JSON
+    if day_entry:
+        day_entry["synced_at"] = date.today().isoformat()
+        day_entry["updated_at"] = date.today().isoformat()
+        days[today] = day_entry
+        health_data["metadata"]["last_sync"] = date.today().isoformat()
+        health_data["metadata"]["total_days"] = len(days)
+        _save_health_json(health_data)
+        print(f"  💾 已写入 {_health_json_path()} ({len(days)} 天)")
+    else:
+        print(f"  ℹ️  今日无新数据，跳过写入")
 
 
 if __name__ == "__main__":
