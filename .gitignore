@@ -69,3 +69,4 @@ docs/*.json
 # 允许提交脱敏测试样例
 !tests/fixtures/
 !tests/fixtures/**
+.worktrees/
