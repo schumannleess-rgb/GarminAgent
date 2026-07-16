@@ -60,10 +60,10 @@ RECOVERY_WEIGHTS = {"hrv": 0.30, "sleep": 0.25, "rhr": 0.20, "readiness": 0.15, 
 
 # 分级阈值 (§4.7)
 GRADE_THRESHOLDS = [
-    (85, "A", "🟢 状态极佳", "EXCELLENT"),
-    (70, "B", "🔵 状态良好", "GOOD"),
-    (55, "C", "🟡 需要注意", "CAUTION"),
-    (40, "D", "🟠 恢复不足", "POOR"),
+    (85, "A", "状态极佳", "EXCELLENT"),
+    (70, "B", "状态良好", "GOOD"),
+    (55, "C", "需要注意", "CAUTION"),
+    (40, "D", "恢复不足", "POOR"),
 ]
 
 # HRV 评分锚点 (§4.2) — (pct_change, score, zone_label)
@@ -170,7 +170,7 @@ _READINESS_GREEN_THRESHOLD = 80
 _READINESS_YELLOW_THRESHOLD = 60
 
 # --- 趋势预警参数 (§4.8) ---
-_TREND_WINDOW  = 5
+_TREND_WINDOW  = 28
 _TREND_THRESHOLD = 60
 _TREND_STREAK  = 3
 
@@ -199,8 +199,8 @@ _VAL_RHR_LOAD_MAX = 3
 # --- 历史数据窗口 (§4.1) ---
 _HRV_HISTORY_DAYS  = 14
 _RHR_HISTORY_DAYS  = 28
-_SLEEP_HISTORY_DAYS = 7
-_READINESS_HISTORY_DAYS = 7
+_SLEEP_HISTORY_DAYS = 28
+_READINESS_HISTORY_DAYS = 28
 
 # --- 秒/小时换算 ---
 _SECS_PER_HOUR = 3600
@@ -218,7 +218,7 @@ def _safe_mean(values: list[float]) -> float:
 def compute_baselines(
     hrv_14d: list[dict],
     rhr_28d: list[dict],
-    sleep_7d: list[dict],
+    sleep_28d: list[dict],
     fallback_hrv_weekly_avg: float = 0,
 ) -> dict:
     """
@@ -227,7 +227,7 @@ def compute_baselines(
     参数:
         hrv_14d:    [{date, value}, ...]  最多 14 条, 降序
         rhr_28d:    [{date, value}, ...]  最多 28 条, 降序
-        sleep_7d:   [{date, total_sec, deep_sec}, ...] 最多 7 条, 降序
+        sleep_28d:  [{date, total_sec, deep_sec}, ...] 最多 28 条, 降序
         fallback_hrv_weekly_avg: JSON 无 weekly_avg 时的回退值
 
     返回:
@@ -250,12 +250,13 @@ def compute_baselines(
     rhr_vals = [h["value"] for h in rhr_28d if h.get("value", 0) > 0]
     rhr_baseline_28d = _safe_mean(rhr_vals)
 
-    # 睡眠: 总时长均值 + 深睡占比均值
-    sleep_tots = [h["total_sec"] for h in sleep_7d if h.get("total_sec", 0) > 0]
+    # 睡眠: 取最近 7 天均值（输入含 28 天，基线只看最近 7 天）
+    sleep_recent = sleep_28d[:7]
+    sleep_tots = [h["total_sec"] for h in sleep_recent if h.get("total_sec", 0) > 0]
     sleep_base_7d = _safe_mean(sleep_tots)
 
     deep_pcts = []
-    for h in sleep_7d:
+    for h in sleep_recent:
         ts = h.get("total_sec", 0)
         ds = h.get("deep_sec", 0)
         if ts > 0:
@@ -647,15 +648,15 @@ def compute_recovery(
 
     # 分级 (§4.7 阈值)
     if score >= 85:
-        grade, label, zone = "A", "🟢 状态极佳", "EXCELLENT"
+        grade, label, zone = "A", "状态极佳", "EXCELLENT"
     elif score >= 70:
-        grade, label, zone = "B", "🔵 状态良好", "GOOD"
+        grade, label, zone = "B", "状态良好", "GOOD"
     elif score >= 55:
-        grade, label, zone = "C", "🟡 需要注意", "CAUTION"
+        grade, label, zone = "C", "需要注意", "CAUTION"
     elif score >= 40:
-        grade, label, zone = "D", "🟠 恢复不足", "POOR"
+        grade, label, zone = "D", "恢复不足", "POOR"
     else:
-        grade, label, zone = "F", "🔴 需要休息", "CRITICAL"
+        grade, label, zone = "F", "需要休息", "CRITICAL"
 
     steps = [
         f"HRV: {hrv_score} x 0.30 = {hrv_score * 0.30:.2f}",
@@ -719,7 +720,7 @@ def check_trend(recent_scores: list[int], window: int = _TREND_WINDOW, threshold
     alert = None
     if max_streak >= streak:
         alert = (
-            f"⚠️ 连续 {max_streak} 天恢复评分 < {threshold} — "
+            f"连续 {max_streak} 天恢复评分 < {threshold} — "
             "Plews(2013) 框架下 NFOR 高风险。建议安排主动恢复日。"
         )
 
@@ -850,20 +851,20 @@ def fetch_from_db(target_date: str | None = None) -> dict | None:
     hrv_14d = _filter_valid(days, "hrv_last_night_avg", _HRV_HISTORY_DAYS)
     rhr_28d = _filter_valid(days, "resting_hr", _RHR_HISTORY_DAYS)
 
-    sleep_7d = []
+    sleep_28d = []
     for d, v in sorted(days.items(), reverse=True)[:_SLEEP_HISTORY_DAYS]:
         if isinstance(v, dict) and v.get("sleep_seconds"):
-            sleep_7d.append({
+            sleep_28d.append({
                 "date": d,
                 "total_sec": int(v["sleep_seconds"]),
                 "deep_sec":  int(v.get("deep_sleep_seconds") or 0),
             })
 
-    rd_7d = _filter_valid(days, "training_readiness_score", _READINESS_HISTORY_DAYS)
-    rd_7d_full = [
+    rd_28d = _filter_valid(days, "training_readiness_score", _READINESS_HISTORY_DAYS)
+    rd_28d_full = [
         {"date": r["date"], "score": r["value"],
          "level": days[r["date"]].get("training_readiness_level", "")}
-        for r in rd_7d
+        for r in rd_28d
     ]
 
     return {
@@ -895,8 +896,8 @@ def fetch_from_db(target_date: str | None = None) -> dict | None:
         "history": {
             "hrv_14d": hrv_14d,
             "rhr_28d": rhr_28d,
-            "sleep_7d": sleep_7d,
-            "readiness_7d": rd_7d_full,
+            "sleep_28d": sleep_28d,
+            "readiness_28d": rd_28d_full,
         },
         "profile": {
             "vo2max": day.get("vo2_max") or "",
@@ -973,7 +974,7 @@ class MorningAdvisor:
         baselines = compute_baselines(
             hrv_14d=history.get("hrv_14d", []),
             rhr_28d=history.get("rhr_28d", []),
-            sleep_7d=history.get("sleep_7d", []),
+            sleep_28d=history.get("sleep_28d", []),
             fallback_hrv_weekly_avg=data.get("hrv_raw", {}).get("weekly_avg", 0),
         )
         result["baselines"] = baselines
@@ -1032,10 +1033,13 @@ class MorningAdvisor:
         )
 
         # ---- §4.8 趋势预警 ----
-        # 构建最近 5 天 readiness 评分序列作为趋势输入
-        rd_scores = [r["score"] for r in history.get("readiness_7d", [])]
-        # 补充当日
-        rd_scores.append(readiness_result["score"])
+        # readiness_28d 为降序(最新在前); check_trend 期望升序(最旧在前、最新在末尾)。
+        # 先剔除“当日”避免重复, 再按日期升序排列, 最后追加当日,
+        # 确保窗口取的是最近 28 天, 而非数据里最旧的 28 天(断点所在)。
+        rd_hist = [r for r in history.get("readiness_28d", []) if r["date"] != self.target_date]
+        rd_sorted = sorted(rd_hist, key=lambda r: r["date"])  # 升序: 最旧 -> 最新
+        rd_scores = [r["score"] for r in rd_sorted]
+        rd_scores.append(readiness_result["score"])  # 当日(最新)置于末尾
         result["trend"] = check_trend(rd_scores)
 
         # ---- 衍生指标汇总 (供报告层使用) ----

@@ -301,10 +301,10 @@ def fetch_from_db(target_date: str = None) -> dict:
     sleep_rows = [
         {"date": d, "total_sec": int(v.get("sleep_seconds") or 0),
          "deep_sec": int(v.get("deep_sleep_seconds") or 0), "garmin_score": v.get("sleep_score")}
-        for d, v in sorted(days.items(), reverse=True)[:7]
+        for d, v in sorted(days.items(), reverse=True)[:28]
         if isinstance(v, dict) and v.get("sleep_seconds")
     ]
-    rd_rows = _filter_valid(days, "training_readiness_score", 7)
+    rd_rows = _filter_valid(days, "training_readiness_score", 28)
 
     return {
         "data_date": target,
@@ -329,8 +329,8 @@ def fetch_from_db(target_date: str = None) -> dict:
         "history": {
             "hrv_14d": hrv_rows,
             "rhr_28d": rhr_rows,
-            "sleep_7d": sleep_rows,
-            "readiness_7d": [
+            "sleep_28d": sleep_rows,
+            "readiness_28d": [
                 {"date": r["date"], "score": r["value"], "level": days[r["date"]].get("training_readiness_level", "")}
                 for r in rd_rows
             ],
@@ -398,9 +398,11 @@ def compute_kpis(data: dict, target_date: str) -> dict:
     hrv_baseline_7d = round(sum(rv) / len(rv)) if rv else hrv_raw["weekly_avg"]
     rhr_vals = [h["value"] for h in history["rhr_28d"]]
     rhr_baseline_28d = round(sum(rhr_vals) / len(rhr_vals)) if rhr_vals else rhr_raw
-    sleep_tots = [h["total_sec"] for h in history["sleep_7d"]]
+    # 睡眠基线: 取最近 7 天（history 含 28 天，基线只看最近 7 天）
+    sleep_recent = history["sleep_28d"][:7]
+    sleep_tots = [h["total_sec"] for h in sleep_recent if h.get("total_sec", 0) > 0]
     sleep_base_7d = round(sum(sleep_tots) / len(sleep_tots)) if sleep_tots else sleep_raw["total_seconds"]
-    deep_pcts = [(h["deep_sec"] / h["total_sec"] * 100) for h in history["sleep_7d"] if h["total_sec"] > 0]
+    deep_pcts = [(h["deep_sec"] / h["total_sec"] * 100) for h in sleep_recent if h.get("total_sec", 0) > 0]
     deep_base_7d = round(sum(deep_pcts) / len(deep_pcts), 1) if deep_pcts else 0
 
     result["baselines"] = {
@@ -528,7 +530,7 @@ def main():
             print(f"  ✅ 基线数据来自 {db_data['latest_db_date']}")
         else:
             print(f"  ⚠️  无本地基线数据，部分评分可能不准确")
-            data["history"] = {"hrv_14d": [], "rhr_28d": [], "sleep_7d": [], "readiness_7d": []}
+            data["history"] = {"hrv_14d": [], "rhr_28d": [], "sleep_28d": [], "readiness_28d": []}
             data["profile"] = {}
 
     # 第三步：计算 KPI

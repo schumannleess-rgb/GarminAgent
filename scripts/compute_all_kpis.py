@@ -58,14 +58,14 @@ def db_data(target_date=None):
     # History: filter valid entries
     hrv_14d = _filter_valid(days, "hrv_last_night_avg", 14)
     rhr_28d = _filter_valid(days, "resting_hr", 28)
-    sleep_7d = [
+    sleep_28d = [
         {"date": d, "total_sec": int(v.get("sleep_seconds") or 0),
          "deep_sec": int(v.get("deep_sleep_seconds") or 0),
          "garmin_score": v.get("sleep_score")}
-        for d, v in sorted(days.items(), reverse=True)[:7]
+        for d, v in sorted(days.items(), reverse=True)[:28]
         if isinstance(v, dict) and v.get("sleep_seconds")
     ]
-    rd_7d = _filter_valid(days, "training_readiness_score", 7)
+    rd_28d = _filter_valid(days, "training_readiness_score", 28)
 
     return {
         "data_date": target,
@@ -90,10 +90,10 @@ def db_data(target_date=None):
         "history": {
             "hrv_14d": hrv_14d,
             "rhr_28d": rhr_28d,
-            "sleep_7d": sleep_7d,
-            "readiness_7d": [
+            "sleep_28d": sleep_28d,
+            "readiness_28d": [
                 {"date": r["date"], "score": r["value"], "level": days[r["date"]].get("training_readiness_level", "")}
-                for r in rd_7d
+                for r in rd_28d
             ],
         },
         "profile": {
@@ -283,9 +283,10 @@ def main():
     hrv_baseline_7d = round(sum(rv) / len(rv)) if rv else data["hrv_raw"]["weekly_avg"]
     rhr_vals = [h["value"] for h in data["history"]["rhr_28d"]]
     rhr_baseline_28d = round(sum(rhr_vals) / len(rhr_vals)) if rhr_vals else data["rhr_raw"]
-    sleep_tots = [h["total_sec"] for h in data["history"]["sleep_7d"]]
+    sleep_28d = data["history"]["sleep_28d"]
+    sleep_tots = [h["total_sec"] for h in sleep_28d[:7] if h.get("total_sec", 0) > 0]
     sleep_base_7d = round(sum(sleep_tots) / len(sleep_tots)) if sleep_tots else data["sleep_raw"]["total_seconds"]
-    deep_pcts = [(h["deep_sec"] / h["total_sec"] * 100) for h in data["history"]["sleep_7d"] if h["total_sec"] > 0]
+    deep_pcts = [(h["deep_sec"] / h["total_sec"] * 100) for h in sleep_28d[:7] if h.get("total_sec", 0) > 0]
     deep_base_7d = round(sum(deep_pcts) / len(deep_pcts), 1) if deep_pcts else 0
     result["baselines"] = {
         "hrv_baseline_7d": hrv_baseline_7d, "rhr_baseline_28d": rhr_baseline_28d,
