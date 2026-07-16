@@ -1,6 +1,88 @@
 # Garmin Agent 🏃
 
-> AI 驱动的 Garmin 训练分析助手。基于 Plan & Execute 架构，用自然语言查询训练数据。
+> AI 驱动的 Garmin 训练分析助手。基于 Plan & Execute 架构，用自然语言查询训练数据，并能离线生成每日恢复力诊断报告。
+
+---
+
+## 功能总览
+
+Garmin Agent 提供两大能力：
+
+1. **对话式训练查询** — 用自然语言问训练/健康数据，助手返回带解读的回复（活动、分段、体能、恢复等）。
+2. **每日恢复力报告** — 离线生成静态 HTML 诊断报告，基于睡眠 / HRV / RHR / 训练准备度输出综合恢复分、28 天趋势与分维度建议，双击即可在浏览器（含 Hermes 等无服务环境）查看。
+
+---
+
+## 功能详解
+
+### 一、对话式训练查询
+
+自然语言交互，三类模式自动路由：
+
+```
+你: 最近跑了什么？
+助手: 📊 最近一次活动 📡 数据来自 Garmin
+      [活动详情 + 建议]
+
+你: 今天状态如何？
+助手: 📊 每日健康摘要 📡 数据来自 Garmin
+      [睡眠 + HRV + 训练准备度]
+
+你: 本月跑步配速>8的圈数明细
+助手: [逐活动 + 逐圈明细表格 + 汇总]
+```
+
+**预设工具（21 个）**
+
+| 分类 | 工具 | 示例问题 |
+|------|------|----------|
+| 🏃 活动查询 | `search_activities`, `get_activity_detail` | "上次跑步" / "活动详情" |
+| 🏋️ 训练类型 | `search_by_training_type`, `classify_activity_type` | "间歇跑" / "节奏跑" |
+| 📊 分段分析 | `get_activity_splits`, `get_interval_analysis` | "分段数据" / "间歇分析" |
+| 💪 能力评估 | `get_training_capacity`, `get_training_status` | "体能水平" / "比赛预测" |
+| 😴 健康恢复 | `get_daily_health_summary` | "今天状态" / "睡眠" |
+
+**CLI 模式**
+
+```bash
+python scripts/garmin_cli.py latest      # 最近一次活动
+python scripts/garmin_cli.py today       # 今天的活动
+python scripts/garmin_cli.py week 2      # 最近2周
+python scripts/garmin_cli.py health      # 健康数据
+python scripts/garmin_cli.py capacity    # 训练能力
+```
+
+核心设计：**数据获取用 Python（确定性），数据解读用 LLM（灵活性）** —— Synthesizer 严格基于工具返回的原始数据生成回复，不编造数值。
+
+### 二、每日恢复力报告
+
+除对话查询外，还能**离线生成每日恢复力诊断报告**：基于 Garmin 睡眠 / HRV / RHR / 训练准备度等数据，输出**综合恢复分、28 天趋势、数据缺口与分维度建议**。报告为静态 HTML，双击即可在浏览器（含 Hermes 等无服务环境）离线查看，无需后端服务。
+
+**交付物（5 个 HTML）**
+
+| 文件 | 角色 | 适用场景 |
+|------|------|----------|
+| `output/html/recovery_standard.html` | 标准版（手工维护的基准，深度诊断） | 最完整解读 |
+| `output/html/recovery_data.html` | 数字版（全字段纯数据页） | 取数 / 二次加工 |
+| `output/html/recovery_pin_paper.html` | 风格 1：pin & paper | 清爽便签风 |
+| `output/html/recovery_zine.html` | 风格 2：zine / Retro | 复古杂志风 |
+| `output/html/recovery_swiss.html` | 风格 3：Swiss deck（PPT 风） | 演示 / 汇报 |
+
+所有变体读取同一份权威数据，仅样式与排版不同。
+
+**生成方式**
+
+```bash
+# 数据源：.local/data/daily_health.json（不提交）→ output/kpi_today.json（权威，不提交）
+GARMIN_OUTPUT_DIR=output python scripts/rebuild_kpi_today.py
+python scripts/gen_trend_data_view.py
+python scripts/variants/pin_paper/build.py
+python scripts/variants/zine/build.py
+python scripts/variants/recovery_deck/build.py
+node scripts/verify_deliverables.js   # 自检：5 交付物数据是否准确
+```
+
+**参考文档**：数据契约 [`docs/KPI_DATA_CONTRACT.md`](docs/KPI_DATA_CONTRACT.md) · 每日产出操作手册 [`docs/DAILY_OUTPUT_RUNBOOK.md`](docs/DAILY_OUTPUT_RUNBOOK.md) · 风格变体注册表 [`scripts/variants/MANIFEST.md`](scripts/variants/MANIFEST.md)
 
 ---
 
@@ -48,10 +130,6 @@ ANTHROPIC_DEFAULT_FABLE_MODEL=step-3.7-flash
 # ZHIPU_API_KEY=your_api_key_here
 # ZHIPU_BASE_URL=https://open.bigmodel.cn/api/anthropic
 # ZHIPU_MODEL=glm-4.7
-#
-# 获取 API Key:
-# - 智谱 GLM: https://open.bigmodel.cn 注册获取
-# - StepFun: https://platform.stepfun.com
 
 # === Garmin 账号 ===
 # 首次登录需要账号密码，之后 TOKEN 自动保存到 ./tokens/
@@ -71,15 +149,10 @@ public repo       源码、文档、测试、脱敏 fixtures，可公开发布
 private archive   旧备份和历史运行材料，放到仓库外
 ```
 
-如果旧版本已经在仓库根目录生成了 `tokens/`、`cache/`、`data/`、`logs/`、`memory/`、`output/`，可以执行：
+如需迁移旧版根目录运行态，发布前执行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/migrate_local_runtime.ps1
-```
-
-发布前执行：
-
-```powershell
 powershell -ExecutionPolicy Bypass -File scripts/preflight_release.ps1
 ```
 
@@ -107,47 +180,6 @@ Planner (LLM) → 决定模式: tool / code / direct
 Synthesizer (LLM) → 基于数据 + 格式规范 → 生成带解读的回复
 ```
 
-**核心设计原则**：数据获取用 Python（确定性），数据解读用 LLM（灵活性）。
-
----
-
-## 功能
-
-### 对话式查询
-
-```
-你: 最近跑了什么？
-助手: 📊 最近一次活动 📡 数据来自 Garmin
-      [活动详情 + 建议]
-
-你: 今天状态如何？
-助手: 📊 每日健康摘要 📡 数据来自 Garmin
-      [睡眠 + HRV + 训练准备度]
-
-你: 本月跑步配速>8的圈数明细
-助手: [逐活动 + 逐圈明细表格 + 汇总]
-```
-
-### 预设工具（21个）
-
-| 分类 | 工具 | 示例问题 |
-|------|------|----------|
-| 🏃 活动查询 | `search_activities`, `get_activity_detail` | "上次跑步" / "活动详情" |
-| 🏋️ 训练类型 | `search_by_training_type`, `classify_activity_type` | "间歇跑" / "节奏跑" |
-| 📊 分段分析 | `get_activity_splits`, `get_interval_analysis` | "分段数据" / "间歇分析" |
-| 💪 能力评估 | `get_training_capacity`, `get_training_status` | "体能水平" / "比赛预测" |
-| 😴 健康恢复 | `get_daily_health_summary` | "今天状态" / "睡眠" |
-
-### CLI 模式
-
-```bash
-python scripts/garmin_cli.py latest      # 最近一次活动
-python scripts/garmin_cli.py today       # 今天的活动
-python scripts/garmin_cli.py week 2      # 最近2周
-python scripts/garmin_cli.py health      # 健康数据
-python scripts/garmin_cli.py capacity    # 训练能力
-```
-
 ---
 
 ## 技术栈
@@ -157,40 +189,6 @@ python scripts/garmin_cli.py capacity    # 训练能力
 - **API**: garminconnect（Garmin Connect 数据接口）
 - **认证**: 自动 TOKEN 持久化（首次需账号密码）
 - **架构**: Plan & Execute 编排器（支持代码沙箱执行）
-
----
-
-## 每日恢复力报告
-
-除对话式查询外，本项目还能**离线生成每日恢复力诊断报告**：基于 Garmin 睡眠 / HRV / RHR / 训练准备度等数据，输出综合恢复分、28 天趋势、数据缺口与分维度建议。报告为静态 HTML，双击即可在浏览器（含 Hermes 等无服务环境）离线查看。
-
-### 交付物（5 个 HTML）
-
-| 文件 | 角色 |
-|------|------|
-| `output/html/recovery_standard.html` | 标准版（手工维护的基准，深度诊断） |
-| `output/html/recovery_data.html` | 数字版（全字段纯数据页） |
-| `output/html/recovery_pin_paper.html` | 风格 1：pin & paper |
-| `output/html/recovery_zine.html` | 风格 2：zine / Retro |
-| `output/html/recovery_swiss.html` | 风格 3：Swiss deck（PPT 风） |
-
-### 生成命令链
-
-```bash
-# 数据源：.local/data/daily_health.json（不提交）→ output/kpi_today.json（权威，不提交）
-GARMIN_OUTPUT_DIR=output python scripts/rebuild_kpi_today.py
-python scripts/gen_trend_data_view.py
-python scripts/variants/pin_paper/build.py
-python scripts/variants/zine/build.py
-python scripts/variants/recovery_deck/build.py
-node scripts/verify_deliverables.js   # 自检：5 交付物数据是否准确
-```
-
-### 数据契约与运维
-
-- 权威数据契约：`docs/KPI_DATA_CONTRACT.md`
-- 每日产出操作手册（命令链 / 坑 / 交付物 / 自检）：`docs/DAILY_OUTPUT_RUNBOOK.md`
-- 风格变体注册表：`scripts/variants/MANIFEST.md`
 
 ---
 
@@ -257,6 +255,10 @@ Windows 和 macOS 均可运行。使用 `setup.py` 自动检测平台。
 
 修改 `.env` 中的 `ZHIPU_BASE_URL` 和 `ZHIPU_MODEL` 指向其他兼容 API（如 Ollama 本地模型）。
 
+### 报告 HTML 能离线看吗？
+
+能。报告为纯静态 HTML，双击即可在浏览器打开；Hermes 等无服务环境也能直接查看，无需后端。
+
 ---
 
 ## 更新日志
@@ -266,6 +268,7 @@ Windows 和 macOS 均可运行。使用 `setup.py` 自动检测平台。
 - 21个预设工具 + 代码沙箱执行
 - 明细优先输出规范
 - 历史对话压缩与 ID 上下文注入
+- 每日恢复力报告（5 个静态 HTML 交付物 + 离线查看）
 
 ### 0.2.0
 - 初始 LangChain Agent 版本
