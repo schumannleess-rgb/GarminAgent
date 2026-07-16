@@ -1,7 +1,7 @@
 # 每日恢复力日报（PPT 风格）生成标准 · RECOVERY-DECK-STANDARD v2
 
 > 适用范围：每天生成的「恢复力日报」PPT 风格 HTML（当前启用 **Swiss** 一种；架构支持多皮肤扩展，共用同一份数据/叙事）
-> 共享内容层（数据/叙事/SVG/组装）：`scripts/ppt_common.py`；Swiss 生成器：`scripts/variants/recovery-deck/build.py`（与 HTML 风格变体统一收口于 scripts/variants/）
+> 共享内容层（数据/叙事/SVG/组装）：`scripts/ppt_common.py`；Swiss 生成器：`scripts/variants/recovery_deck/build.py`（与 HTML 风格变体统一收口于 scripts/variants/）
 > 数据源（唯一标准）：`output/kpi_today.json` —— 由 `scripts/rebuild_kpi_today.py` 从 `daily_health.json` 重建。
 
 ## 1. 数据来源（强制）
@@ -18,10 +18,10 @@
 
 | 风格 | 生成器 | 输出文件 | 皮肤 |
 |------|--------|----------|------|
-| Swiss（国际主义蓝）★当前启用 | `scripts/variants/recovery-deck/build.py` | `output/html/recovery_deck_swiss.html` | 白底 · 国际蓝 `#002FA7` |
-| 深度诊断标准版（参考，非 deck 皮肤） | 既有 `output/html/deep_diagnosis_latest.html` | `output/html/deep_diagnosis_latest.html` | 见原文件 |
+| Swiss（国际主义蓝）★当前启用 | `scripts/variants/recovery_deck/build.py` | `output/html/recovery_swiss.html` | 白底 · 国际蓝 `#002FA7` |
+| 深度诊断标准版（参考，非 deck 皮肤） | 既有 `output/html/recovery_standard.html` | `output/html/recovery_standard.html` | 见原文件 |
 
-> Swiss 风格的「内容与分析」对齐 `deep_diagnosis_latest.html`（标准版）的数据口径。
+> Swiss 风格的「内容与分析」对齐 `recovery_standard.html`（标准版）的数据口径。
 > 旧版 `output/ppt/`、`output/ppt_swiss/` 及 **DEEP DIAGNOSIS v2.0** 已归档至 `output/html/archive/`（脚本在 `scripts/archive/`），不再用于每日生成。
 
 ## 3b. 数值精度治理（数据治理，强制）
@@ -85,12 +85,12 @@
 
 ```bash
 python scripts/rebuild_kpi_today.py   # 1) 重建 kpi_today.json
-python scripts/variants/recovery-deck/build.py     # 2) output/html/recovery_deck_swiss.html
-# deep_diagnosis_latest.html 由既有流程生成（详细标准版，非 deck 皮肤）
+python scripts/variants/recovery_deck/build.py     # 2) output/html/recovery_swiss.html
+# recovery_standard.html 由既有流程生成（详细标准版，非 deck 皮肤）
 ```
 
 ## 7. 一致性约束
 
 - 样式/文案修改**只能**在 `ppt_common.py` 或对应 `theme_css` 内完成。
-- 新增风格：复制 `scripts/variants/recovery-deck/build.py`，仅换 `theme_css` 与输出文件名，复用 `scripts/ppt_common.py`。
+- 新增风格：复制 `scripts/variants/recovery_deck/build.py`，仅换 `theme_css` 与输出文件名，复用 `scripts/ppt_common.py`。
 - 所有每日 deck 必须落在 `output/html/`，与标准版同目录。

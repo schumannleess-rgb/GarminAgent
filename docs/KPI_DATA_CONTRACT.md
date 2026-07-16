@@ -1,6 +1,6 @@
 # 数据契约 / 标准版说明（KPI Data Contract）
 
-本文件是 **标准版 `output/html/deep_diagnosis_latest.html`** 对外暴露的数据契约。
+本文件是 **标准版 `output/html/recovery_standard.html`** 对外暴露的数据契约。
 任何「风格变体」(不同 style 的 html) 只需读取同一份 `kpi_today.json`、遵循本契约，
 即可自行决定样式与布局，**无需复制任何数据或绘图逻辑**。
 
@@ -8,7 +8,7 @@
 
 ## 1. 标准版定位
 
-- **标准版文件**：`output/html/deep_diagnosis_latest.html`
+- **标准版文件**：`output/html/recovery_standard.html`
   - 数据加载 + 绘图 + 7/14/28 天标签切换 + 失败展示 的**唯一逻辑来源**。
   - 文件头带 `<!-- 标准版 STANDARD ... -->` 注释标识。
 - **风格变体**：只改 CSS / 布局；数据一律来自下面的 `kpi_today.json`，逻辑复用标准版（直接引用或自行读取 JSON）。
@@ -120,7 +120,7 @@ async function loadData() {
 ```
 
 - **file:// 双击打开（Hermes/离线）**：直接渲染内嵌静态快照，页头显示黄色「静态快照」徽标。**这是预期且正确的行为**（无需 HTTP 服务）。
-- **http(s):// 打开**：经 HTTP 服务，例如 `python3 -m http.server` 指向 `output/` 后访问 `html/deep_diagnosis_latest.html`；fetch 失败 → 固定失败页。
+- **http(s):// 打开**：经 HTTP 服务，例如 `python3 -m http.server` 指向 `output/` 后访问 `html/recovery_standard.html`；fetch 失败 → 固定失败页。
 
 ---
 

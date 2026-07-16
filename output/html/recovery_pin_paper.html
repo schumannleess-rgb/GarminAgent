@@ -747,7 +747,7 @@
 }
 </style>
 </head>
-<body>
+<body data-style="pin-paper">
 <div class="container">
   <div id="loading" class="loading">
     <div class="spinner"></div>
@@ -766,7 +766,7 @@
 
     <!-- Alert -->
     <div class="alert-bar ok" id="alertBar">
-      <span id="alertIcon">&#x2705;</span>
+      <span id="alertIcon"></span>
       <span id="alertText">趋势正常</span>
     </div>
 
@@ -804,7 +804,7 @@
 
     <!-- Section 2: Recovery Score Trend -->
     <div class="chart-card">
-      <div class="chart-title">&#x1F4C8; 恢复分近期走势</div>
+      <div class="chart-title"> 恢复分近期走势</div>
       <div class="chart-subtitle" id="trendSubtitle">恢复分趋势（警戒线 60）</div>
       <div class="chart-tabs" data-chart="recovery">
         <button class="tab-btn" data-win="7">7天</button>
@@ -824,7 +824,7 @@
 
     <!-- Section 3: HRV + RHR Dual Trend -->
     <div class="chart-card">
-      <div class="chart-title">&#x1F4CA; HRV &amp; 静息心率趋势</div>
+      <div class="chart-title"> HRV &amp; 静息心率趋势</div>
       <div class="chart-subtitle">HRV 越高越好 / 静息心率 越低越好（按日历日，缺测断开）</div>
       <div class="chart-tabs" data-chart="dual">
         <button class="tab-btn" data-win="7">7天</button>
@@ -844,7 +844,7 @@
 
     <!-- Section 4: Sleep Trend -->
     <div class="chart-card">
-      <div class="chart-title">&#x1F634; 睡眠时长趋势</div>
+      <div class="chart-title"> 睡眠时长趋势</div>
       <div class="chart-subtitle">总睡眠时长（目标 7h，按日历日，缺测断开）</div>
       <div class="chart-tabs" data-chart="sleep">
         <button class="tab-btn" data-win="7">7天</button>
@@ -864,7 +864,7 @@
 
     <!-- Section 5: Readiness Trend -->
     <div class="chart-card">
-      <div class="chart-title">&#x1F3C5; 训练准备度趋势</div>
+      <div class="chart-title"> 训练准备度趋势</div>
       <div class="chart-subtitle">准备度评分（80+ 适合训练，按日历日，缺测断开）</div>
       <div class="chart-tabs" data-chart="ready">
         <button class="tab-btn" data-win="7">7天</button>
@@ -889,19 +889,19 @@
       <div class="analysis-text" id="hrvAnalysis"></div>
       <div style="margin-top:12px;">
         <div class="info-row">
-          <span class="info-label">&#x1F4C5; 昨晚 HRV</span>
+          <span class="info-label"> 昨晚 HRV</span>
           <span class="info-value" id="hrvLast">-- ms</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F4C8; 7 天基线</span>
+          <span class="info-label"> 7 天基线</span>
           <span class="info-value" style="color:var(--text-dim);" id="hrvBase">-- ms</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F504; 变化率</span>
+          <span class="info-label"> 变化率</span>
           <span class="info-value" id="hrvChange">--</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F3AF; 得分</span>
+          <span class="info-label"> 得分</span>
           <span class="info-value" id="hrvScore">-- / 100</span>
         </div>
       </div>
@@ -914,19 +914,19 @@
       <div class="analysis-text" id="rhrAnalysis"></div>
       <div style="margin-top:12px;">
         <div class="info-row">
-          <span class="info-label">&#x2764;&#xFE0F; 当前心率</span>
+          <span class="info-label"> 当前心率</span>
           <span class="info-value" id="rhrCurrent">-- bpm</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F4CA; 28 天基线</span>
+          <span class="info-label"> 28 天基线</span>
           <span class="info-value" style="color:var(--text-dim);" id="rhrBase">-- bpm</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F503; 偏差</span>
+          <span class="info-label"> 偏差</span>
           <span class="info-value" id="rhrDev">--</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F3AF; 得分</span>
+          <span class="info-label"> 得分</span>
           <span class="info-value" id="rhrScore">-- / 100</span>
         </div>
       </div>
@@ -936,7 +936,7 @@
     <div class="section">
       <div class="section-title"><div class="section-num" style="background:var(--dim-sleep);">7</div>睡眠质量</div>
       <div id="sleepNote" style="font-size:12px;color:var(--excellent);margin-bottom:10px;padding:8px;background:rgba(34,197,94,0.1);border-radius:8px;">
-        &#x2705; 使用 Garmin 官方睡眠评分
+         使用 Garmin 官方睡眠评分
       </div>
       <div class="sleep-grid">
         <div class="sleep-stat">
@@ -953,19 +953,19 @@
       <div class="analysis-text" id="sleepAnalysis"></div>
       <div style="margin-top:12px;">
         <div class="info-row">
-          <span class="info-label">&#x1F6EE;&#xFE0F; 深睡时长</span>
+          <span class="info-label"> 深睡时长</span>
           <span class="info-value" id="deepTime">--</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F4A4; REM 时长</span>
+          <span class="info-label"> REM 时长</span>
           <span class="info-value" id="remTime">--</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F6CF; 清醒次数</span>
+          <span class="info-label"> 清醒次数</span>
           <span class="info-value" id="awakeCount">--</span>
         </div>
         <div class="info-row">
-          <span class="info-label">&#x1F3C6; Garmin 评分</span>
+          <span class="info-label"> Garmin 评分</span>
           <span class="info-value" id="sleepScore" style="color:var(--dim-sleep);">-- /100</span>
         </div>
       </div>
@@ -1265,12 +1265,12 @@ function render(data, mode) {
   if (trend.alert) {
     alertBar.classList.remove('ok');
     alertBar.classList.add('warn');
-    document.getElementById('alertIcon').textContent = '⚠️';
+    document.getElementById('alertIcon').textContent = '';
     document.getElementById('alertText').textContent = trend.alert;
   } else {
     alertBar.classList.add('ok');
     alertBar.classList.remove('warn');
-    document.getElementById('alertIcon').textContent = '✅';
+    document.getElementById('alertIcon').textContent = '';
     document.getElementById('alertText').textContent = '近 5 天恢复状态稳定';
   }
 
@@ -1310,7 +1310,7 @@ function render(data, mode) {
   const readyC = contribMap['readiness'] || 0;
   const stressC = contribMap['stress'] || 0;
   document.getElementById('formulaBox').innerHTML = `
-    <div style="margin-bottom:6px;">&#x1F9EE; <strong>恢复分是怎么算出来的？</strong></div>
+    <div style="margin-bottom:6px;"> <strong>恢复分是怎么算出来的？</strong></div>
     <div>你的恢复分由 <span class="d-hrv">HRV</span>、<span class="d-sleep">睡眠</span>、<span class="d-rhr">静息心率</span>、<span class="d-ready">训练准备度</span> 和 <span class="d-stress">压力</span> 五个方面综合计算。</div>
     <div style="margin-top:8px;">每个维度有不同权重：</div>
     <div style="margin-top:4px;padding-left:12px;">
@@ -1340,30 +1340,30 @@ function render(data, mode) {
 
   document.getElementById('kpiGrid').innerHTML = `
     <div class="kpi-card">
-      <div class="kpi-header"><span class="kpi-icon">&#x1F9C0;</span><span class="kpi-name">HRV</span></div>
+      <div class="kpi-header"><span class="kpi-icon"></span><span class="kpi-name">HRV</span></div>
       <div class="kpi-value" style="color:var(--dim-hrv);">${hrv.last_night_ms || '--'}<span class="kpi-unit">ms</span></div>
       <div class="kpi-delta ${hrvPct > 0 ? 'up' : hrvPct < 0 ? 'down' : 'neutral'}">${hrvPct > 0 ? '&#x2191;' : hrvPct < 0 ? '&#x2193;' : '&#x2014;'} ${typeof hrvPct === 'number' ? Math.abs(hrvPct).toFixed(1) + '%' : '--'}</div>
       <div class="kpi-desc">7天基线 ${data.baselines?.hrv_baseline_7d || '--'} ms。HRV 越高，神经系统恢复越好。</div>
       <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, ((hrv.score || 0)))}%;background:var(--dim-hrv);"></div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-header"><span class="kpi-icon">&#x2764;&#xFE0F;</span><span class="kpi-name">静息心率</span></div>
+      <div class="kpi-header"><span class="kpi-icon"></span><span class="kpi-name">静息心率</span></div>
       <div class="kpi-value" style="color:var(--dim-rhr);">${rhr.current_bpm || '--'}<span class="kpi-unit">bpm</span></div>
       <div class="kpi-delta ${rhrDev < 0 ? 'up' : rhrDev > 3 ? 'down' : 'neutral'}">${rhrDev < 0 ? '&#x2191;' : rhrDev > 0 ? '&#x2193;' : '&#x2014;'} ${typeof rhrDev === 'number' ? Math.abs(rhrDev) + ' bpm' : '--'}</div>
       <div class="kpi-desc">28天基线 ${data.baselines?.rhr_baseline_28d || '--'} bpm。低于基线是恢复好的信号。</div>
       <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, ((rhr.score || 0)))}%;background:var(--dim-rhr);"></div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-header"><span class="kpi-icon">&#x1F634;</span><span class="kpi-name">睡眠</span></div>
+      <div class="kpi-header"><span class="kpi-icon"></span><span class="kpi-name">睡眠</span></div>
       <div class="kpi-value" style="color:var(--dim-sleep);">${sleepH ? sleepH.toFixed(1) : '--'}<span class="kpi-unit">h</span></div>
-      <div class="kpi-delta ${sleepH >= 7 ? 'up' : sleepH >= 6 ? 'neutral' : 'down'}">${sleepH >= 7 ? '&#x2705; 充足' : sleepH >= 6 ? '&#x26A0; 略短' : '&#x1F6D1; 不足'}</div>
+      <div class="kpi-delta ${sleepH >= 7 ? 'up' : sleepH >= 6 ? 'neutral' : 'down'}">${sleepH >= 7 ? ' 充足' : sleepH >= 6 ? ' 略短' : ' 不足'}</div>
       <div class="kpi-desc">深睡 ${deepPct ? deepPct.toFixed(0) : '--'}%。7天平均 ${data.baselines?.sleep_baseline_7d?.total_hours ? data.baselines.sleep_baseline_7d.total_hours.toFixed(1) : '--'} h。</div>
       <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, (sleepH / 9) * 100)}%;background:var(--dim-sleep);"></div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-header"><span class="kpi-icon">&#x1F3C5;</span><span class="kpi-name">训练准备度</span></div>
+      <div class="kpi-header"><span class="kpi-icon"></span><span class="kpi-name">训练准备度</span></div>
       <div class="kpi-value" style="color:var(--dim-readiness);">${readiness.score || '--'}<span class="kpi-unit">/100</span></div>
-      <div class="kpi-delta ${(readiness.score || 0) >= 80 ? 'up' : (readiness.score || 0) >= 60 ? 'neutral' : 'down'}">${(readiness.score || 0) >= 80 ? '&#x2705; 适合训练' : (readiness.score || 0) >= 60 ? '&#x26A0; 中等强度' : '&#x1F6D1; 建议休息'}</div>
+      <div class="kpi-delta ${(readiness.score || 0) >= 80 ? 'up' : (readiness.score || 0) >= 60 ? 'neutral' : 'down'}">${(readiness.score || 0) >= 80 ? ' 适合训练' : (readiness.score || 0) >= 60 ? ' 中等强度' : ' 建议休息'}</div>
       <div class="kpi-desc">Garmin 综合评估今日训练适宜度。基于 HRV、睡眠、心率、急性疲劳。</div>
       <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${readiness.score || 0}%;background:var(--dim-readiness);"></div></div>
     </div>
@@ -1446,11 +1446,11 @@ function render(data, mode) {
   const garminUsed = sleep.garmin_score_used;
   const sleepNote = document.getElementById('sleepNote');
   if (garminUsed) {
-    sleepNote.innerHTML = '&#x2705; 使用 Garmin 官方睡眠评分（综合时长、深睡、REM、睡眠连续性）';
+    sleepNote.innerHTML = ' 使用 Garmin 官方睡眠评分（综合时长、深睡、REM、睡眠连续性）';
     sleepNote.style.background = 'rgba(45,106,79,0.1)';
     sleepNote.style.color = 'var(--excellent)';
   } else {
-    sleepNote.innerHTML = '&#x1F4CB; 使用自定义睡眠评分';
+    sleepNote.innerHTML = ' 使用自定义睡眠评分';
     sleepNote.style.background = 'rgba(31,58,138,0.08)';
     sleepNote.style.color = 'var(--text-dim)';
   }
@@ -1489,14 +1489,14 @@ function render(data, mode) {
   };
   document.getElementById('patternsList').innerHTML = patterns.map(p => {
     const cls = p.match ? 'pattern-item matched' : 'pattern-item';
-    const icon = p.match ? '&#x2705;' : '&#x26A0;&#xFE0F;';
+    const icon = p.match ? '' : '';
     const meaning = patternMeanings[p.id] || p.condition_desc || '';
     return `<div class="${cls}">
       <div class="pattern-icon">${icon}</div>
       <div class="pattern-content">
         <div class="pattern-name">${p.label}</div>
         <div class="pattern-desc">${p.condition_desc || ''}</div>
-        <div class="pattern-meaning">&#x1F4A1; ${meaning}</div>
+        <div class="pattern-meaning"> ${meaning}</div>
       </div>
     </div>`;
   }).join('');
@@ -1506,27 +1506,27 @@ function render(data, mode) {
   let adviceItems = [];
   if (grade === 'A' || grade === 'B') {
     adviceItems = [
-      { icon: '&#x1F3C3;', text: '可以进行 <strong>正常训练</strong>，状态良好，适合提高强度。' },
-      { icon: '&#x23F1;&#xFE0F;', text: '建议训练时长 <strong>45-60 分钟</strong>。' },
-      { icon: '&#x26A1;', text: '可以尝试 <strong>中等强度</strong>（心率区间 2-3）。' },
+      { icon: '', text: '可以进行 <strong>正常训练</strong>，状态良好，适合提高强度。' },
+      { icon: '', text: '建议训练时长 <strong>45-60 分钟</strong>。' },
+      { icon: '', text: '可以尝试 <strong>中等强度</strong>（心率区间 2-3）。' },
     ];
   } else if (grade === 'C') {
     adviceItems = [
-      { icon: '&#x1F3C3;', text: '建议 <strong>低强度有氧</strong> 或 <strong>主动恢复</strong>（散步、瑜伽、拉伸）。' },
-      { icon: '&#x23F1;&#xFE0F;', text: '建议训练时长 <strong>30 分钟以内</strong>，或改为恢复活动。' },
-      { icon: '&#x26A1;', text: '保持 <strong>低强度</strong>（心率区间 1），避免冲刺或高强度间歇。' },
+      { icon: '', text: '建议 <strong>低强度有氧</strong> 或 <strong>主动恢复</strong>（散步、瑜伽、拉伸）。' },
+      { icon: '', text: '建议训练时长 <strong>30 分钟以内</strong>，或改为恢复活动。' },
+      { icon: '', text: '保持 <strong>低强度</strong>（心率区间 1），避免冲刺或高强度间歇。' },
     ];
   } else if (grade === 'D') {
     adviceItems = [
-      { icon: '&#x1F6D1;', text: '建议 <strong>休息或极低强度活动</strong>，身体需要更多恢复时间。' },
-      { icon: '&#x23F1;&#xFE0F;', text: '今天 <strong>不建议训练</strong>，让身体充分修复。' },
-      { icon: '&#x1F4A8;', text: '如果必须动，只能是 <strong>散步 10-15 分钟</strong>。' },
+      { icon: '', text: '建议 <strong>休息或极低强度活动</strong>，身体需要更多恢复时间。' },
+      { icon: '', text: '今天 <strong>不建议训练</strong>，让身体充分修复。' },
+      { icon: '', text: '如果必须动，只能是 <strong>散步 10-15 分钟</strong>。' },
     ];
   } else {
     adviceItems = [
-      { icon: '&#x1F4A4;', text: '<strong>充分休息</strong>，今天不要训练。' },
-      { icon: '&#x1F375;', text: '注意补充营养和水分，保证睡眠质量。' },
-      { icon: '&#x1F30D;', text: '明天再评估状态，不要强行训练。' },
+      { icon: '', text: '<strong>充分休息</strong>，今天不要训练。' },
+      { icon: '', text: '注意补充营养和水分，保证睡眠质量。' },
+      { icon: '', text: '明天再评估状态，不要强行训练。' },
     ];
   }
   adviceList.innerHTML = adviceItems.map(item => `

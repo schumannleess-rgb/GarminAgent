@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-build.py — 从 kpi_today.json 生成 wellness_zine.html
+build.py — 从 kpi_today.json 生成 recovery_zine.html
 
 流程:
     1. 读取 output/kpi_today.json
     2. 提取 FALLBACK 数据（与 JSON 完全对齐，不再手写硬编码）
-    3. 写入 output/html/wellness_zine.html
+    3. 写入 output/html/recovery_zine.html
 
 用法:
     python scripts/variants/zine/build.py
@@ -17,6 +17,7 @@ build.py — 从 kpi_today.json 生成 wellness_zine.html
 
 import json
 import argparse
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,7 +26,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # ── Zine 模板 ──────────────────────────────────────────────────────────────
-# 这是定稿的 wellness_zine.html 骨架，从 HTML 提取后固化到这里。
+# 这是定稿的 recovery_zine.html 骨架，从 HTML 提取后固化到这里。
 # 数据占位符用 {{KEY}} 语法，渲染时替换。
 
 ZINE_TEMPLATE = r'''<!DOCTYPE html>
@@ -387,7 +388,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       transform: rotate(-0.4deg);
     }
     .chart-box canvas {
-      width: 100%; height: clamp(100px, 16vh, 180px);
+      width: 100%; height: clamp(120px, 19vh, 210px);
       display: block;
       border-top: 2px solid var(--black);
       margin-top: 6px;
@@ -403,6 +404,24 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       font-size: clamp(0.75rem, 1.8vw, 0.95rem);
       color: var(--green); margin-top: 2px;
     }
+
+    /* 趋势窗口切换标签（7/14/28 日） */
+    .trend-tabs {
+      display: flex; gap: 8px; margin: 2px 0 4px;
+    }
+    .trend-tab {
+      font-family: var(--display);
+      font-size: clamp(0.8rem, 2.2vw, 1.05rem);
+      letter-spacing: 0.06em;
+      padding: 4px 18px;
+      border: 2px solid var(--black);
+      background: var(--bg);
+      color: var(--black);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .trend-tab:hover { background: var(--green_light); }
+    .trend-tab.active { background: var(--green); color: var(--white); }
 
     /* ========== SLIDE 5 — 深度分析 ========== */
     #slide-5 {
@@ -433,6 +452,18 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       padding: 10px; background: var(--bg);
       border: 2px solid var(--black);
       margin: 8px 0;
+    }
+    /* 公式主体 + 来源脚注：引用只作小字角落注，不作为说明主体 */
+    .formula-method {
+      font-weight: 600;
+      font-size: 0.85rem; color: var(--black); line-height: 1.5;
+      word-break: break-word;
+    }
+    .formula-cite {
+      margin-top: 6px;
+      font-family: var(--serif);
+      font-size: 0.72rem; font-style: italic;
+      color: #8a7f6e; text-align: right; line-height: 1.4;
     }
     .analysis-text {
       font-size: 0.88rem; color: var(--black); line-height: 1.7;
@@ -581,7 +612,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     }
   </style>
 </head>
-<body>
+<body data-style="zine">
 
   <div class="grain-overlay" aria-hidden="true">
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
@@ -712,27 +743,32 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       <span class="section-number">04</span>
       <span class="section-label">趋势总览</span>
     </div>
-    <div class="ribbon-bar">7日数据趋势</div>
+    <div class="ribbon-bar"><span id="trendRibbon">7日数据趋势</span></div>
+    <div class="trend-tabs">
+      <button type="button" class="trend-tab active" data-win="7">7日</button>
+      <button type="button" class="trend-tab" data-win="14">14日</button>
+      <button type="button" class="trend-tab" data-win="28">28日</button>
+    </div>
     <div class="charts-stack">
       <div class="chart-box">
         <div class="chart-box-title">恢复趋势</div>
         <div class="chart-box-sub" id="trendSub">{{TREND_SUB}}</div>
-        <canvas id="trendChart" width="800" height="180"></canvas>
+        <canvas id="trendChart" width="800" height="200"></canvas>
       </div>
       <div class="chart-box">
         <div class="chart-box-title">心率变异性 / 静息心率</div>
-        <div class="chart-box-sub">双轴对比</div>
-        <canvas id="dualChart" width="800" height="160"></canvas>
+        <div class="chart-box-sub">双轴对比 · 点击上方标签切换周期</div>
+        <canvas id="dualChart" width="800" height="200"></canvas>
       </div>
       <div class="chart-box">
         <div class="chart-box-title">睡眠趋势</div>
-        <div class="chart-box-sub">深睡 / REM / 清醒</div>
-        <canvas id="sleepChart" width="800" height="160"></canvas>
+        <div class="chart-box-sub">睡眠分数 / 深睡%</div>
+        <canvas id="sleepChart" width="800" height="200"></canvas>
       </div>
       <div class="chart-box">
         <div class="chart-box-title">准备度趋势</div>
         <div class="chart-box-sub" id="readySub">{{READY_SUB}}</div>
-        <canvas id="readyChart" width="800" height="150"></canvas>
+        <canvas id="readyChart" width="800" height="185"></canvas>
       </div>
     </div>
   </section>
@@ -747,7 +783,10 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     <div class="analysis-grid">
       <div class="analysis-card">
         <h3>心率变异性</h3>
-        <div class="formula-box" id="hrvFormulaBox">{{HRV_FORMULA_BOX}}</div>
+        <div class="formula-box">
+          <div class="formula-method" id="hrvFormulaBody">{{HRV_FORMULA_BODY}}</div>
+          <div class="formula-cite" id="hrvFormulaCite">{{HRV_FORMULA_CITE}}</div>
+        </div>
         <p class="analysis-text" id="hrvAnalysisText">{{HRV_ANALYSIS_TEXT}}</p>
         <div class="analysis-score">
           <span class="score-chip" id="hrvScoreChip">{{HRV_SCORE_CHIP}}</span>
@@ -757,7 +796,10 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       </div>
       <div class="analysis-card">
         <h3>静息心率</h3>
-        <div class="formula-box" id="rhrFormulaBox">{{RHR_FORMULA_BOX}}</div>
+        <div class="formula-box">
+          <div class="formula-method" id="rhrFormulaBody">{{RHR_FORMULA_BODY}}</div>
+          <div class="formula-cite" id="rhrFormulaCite">{{RHR_FORMULA_CITE}}</div>
+        </div>
         <p class="analysis-text" id="rhrAnalysisText">{{RHR_ANALYSIS_TEXT}}</p>
         <div class="analysis-score">
           <span class="score-chip" id="rhrScoreChip">{{RHR_SCORE_CHIP}}</span>
@@ -831,7 +873,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     const STATIC_DATA = {{STATIC_DATA_JS}};
 
     /* ============================================
-       DATA LOADING — 双模式（对齐标准版 deep_diagnosis_latest）
+       DATA LOADING — 双模式（对齐标准版 recovery_standard）
        ============================================ */
     function getDataUrl() {
       return '../kpi_today.json';
@@ -879,6 +921,18 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       }
     }
 
+    /* 拆分"方法定义 + 文献引用"：引用（Plews 2014 [R7]）单独抽出来作脚注 */
+    function splitCitation(s) {
+      if (!s) return { method: '', cite: '' };
+      const m = String(s).match(/^(.*?),\s*([A-Za-z][\w.&''-]*(?:\s+et\s+al\.?)?\s*\d{4}\s*\[[^\]]+\])\s*$/);
+      if (m) return { method: m[1].trim(), cite: m[2].trim() };
+      return { method: String(s), cite: '' };
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function normalizeData(raw) {
       const ri = raw.raw_inputs || {};
       const hist = raw.history || {};
@@ -895,8 +949,12 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       const hrvPct = hrvDs.pct_change_pct != null ? hrvDs.pct_change_pct : 0;
       const hrvScore = hrvDs.score > 0 ? hrvDs.score :
         (hrvPct >= 5 ? 85 : hrvPct >= 0 ? 75 : hrvPct >= -5 ? 60 : 40);
-      const hrvFormula = (bs.formulas && bs.formulas.hrv_baseline) ||
+      const hrvFormulaRaw = (bs.formulas && bs.formulas.hrv_baseline) ||
         'HRV = 过去7晚心率变异性的滚动平均值 (RMSSD)';
+      const hrvSplit = splitCitation(hrvFormulaRaw);
+      const hrvFormula = hrvFormulaRaw;
+      const hrvFormulaBody = hrvSplit.method;
+      const hrvFormulaCite = hrvSplit.cite;
       const hrvAnalysis = `心率变异性 ${hrvLast}ms，基准 ${hrvBase}ms。变化 ${hrvPct >= 0 ? '+' : ''}${hrvPct.toFixed(2)}%。` +
         (hrvPct > 0 ? '副交感神经张力良好，恢复能力提升。' : hrvPct >= -5 ? '恢复能力稳定。' : '注意恢复，避免过度训练。');
 
@@ -909,8 +967,12 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         (rhrCurrent - rhrBase);
       const rhrScore = rhrDs.score != null ? rhrDs.score :
         (rhrDev <= -3 ? 95 : rhrDev <= 0 ? 85 : rhrDev <= 3 ? 75 : 60);
-      const rhrFormula = (bs.formulas && bs.formulas.rhr_baseline) ||
+      const rhrFormulaRaw = (bs.formulas && bs.formulas.rhr_baseline) ||
         'RHR = 28日滚动静息心率基准。Bosquet 2003 [R12]';
+      const rhrSplit = splitCitation(rhrFormulaRaw);
+      const rhrFormula = rhrFormulaRaw;
+      const rhrFormulaBody = rhrSplit.method;
+      const rhrFormulaCite = rhrSplit.cite;
       const rhrAnalysis = `静息心率 ${rhrCurrent} 次/分，基准 ${rhrBase} 次/分（偏差 ${rhrDev >= 0 ? '+' : ''}${rhrDev} 次/分）。` +
         (rhrDev < 0 ? '心血管效率优秀，恢复状态佳。' : '恢复状态良好。');
 
@@ -967,31 +1029,38 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
          '恢复状态需要关注，建议优先保证睡眠。');
       const statement_attr = raw.date ? `每日健康报告，${raw.date}` : '每日健康报告';
 
-      // --- TREND DATA (最近 7 天；history 数组为降序「最新在前」，故按日期升序排序后取末尾 7 条) ---
-      const recentN = (arr, n = 7) => {
-        if (!Array.isArray(arr)) return [];
-        return [...arr].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-n);
-      };
-      const recent7 = (arr, pick) => recentN(arr).map(pick);
-      const recentDates = (arr) => recentN(arr).map(e => e.date || '');
+      // --- TREND DATA：全程使用 *_cal_28d（严格 28 日历日，含 null 缺口），与标准版契约一致 ---
+      // 升序排列（最旧在前），保留 null 缺口；窗口切片在 redrawTrend(win) 中按"末尾 N 条"完成
+      const asc = (arr) => Array.isArray(arr)
+        ? [...arr].sort((a, b) => new Date(a.date) - new Date(b.date))
+        : [];
       const fmtDate = (d) => {
         if (!d) return '';
         const dt = new Date(d);
-        const m = dt.getMonth() + 1, day = dt.getDate();
-        return m + '/' + day;
+        return (dt.getMonth() + 1) + '/' + dt.getDate();
       };
-      // 趋势改用 *_cal_28d（严格 28 日历日，含 null 缺口），与标准版契约一致；不再使用陈旧 rolling 数组
-      const trend = recent7(hist.hrv_cal_28d, e => e.value);            // HRV(ms)，保留 null 缺口
-      const rhrTrend = recent7(hist.rhr_cal_28d, e => e.value);         // RHR(bpm)，保留 null 缺口
-      const sleepCal = (hist.sleep_cal_28d || []).filter(e => e.value && e.value.garmin_score != null);
-      const sleepHist = recentN(sleepCal);
-      const sleepScoreTrend = sleepHist.map(e => e.value.garmin_score);
-      const sleepDeepTrend = sleepHist.map(e => {
+      const hrvFull = asc(hist.hrv_cal_28d).map(e => (e && 'value' in e) ? e.value : null);
+      const hrvLabels = asc(hist.hrv_cal_28d).map(e => fmtDate(e && e.date));
+      const rhrFull = asc(hist.rhr_cal_28d).map(e => (e && 'value' in e) ? e.value : null);
+      const rhrLabels = asc(hist.rhr_cal_28d).map(e => fmtDate(e && e.date));
+      const readyFull = asc(hist.readiness_cal_28d).map(e =>
+        (e && e.value && e.value.score != null) ? e.value.score : null);
+      const readyLabels = asc(hist.readiness_cal_28d).map(e => fmtDate(e && e.date));
+      const sleepCal = asc(hist.sleep_cal_28d || []).filter(e => e.value && e.value.garmin_score != null);
+      const sleepFull = sleepCal.map(e => e.value.garmin_score);
+      const sleepDeepFull = sleepCal.map(e => {
         const v = e.value;
         return (v.deep_sec && v.total_sec) ? +(v.deep_sec / v.total_sec * 100).toFixed(1) : 0;
       });
-      const readyTrend = recent7(hist.readiness_cal_28d, e => e.value ? e.value.score : null);  // 保留 null 缺口
-      const trendLabels = recentDates(hist.hrv_cal_28d).map(fmtDate);
+      const sleepLabels = sleepCal.map(e => fmtDate(e.date));
+
+      // 兼容旧字段：默认 7 日窗口（redrawTrend 会按所选标签覆盖）
+      const trend = hrvFull.slice(-7);
+      const trendLabels = hrvLabels.slice(-7);
+      const rhrTrend = rhrFull.slice(-7);
+      const sleepScoreTrend = sleepFull.slice(-7);
+      const sleepDeepTrend = sleepDeepFull.slice(-7);
+      const readyTrend = readyFull.slice(-7);
 
       // --- PATTERNS ---
       const patterns = [];
@@ -1023,9 +1092,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         grade, score,
         hrv: hrvLast, hrv_base: hrvBase, hrv_dev_pct: hrvPct, hrv_score: hrvScore,
         hrv_weekly: hrvRaw.weekly_avg || 0, hrv_status: hrvRaw.status || '--',
-        hrv_formula: hrvFormula, hrv_analysis: hrvAnalysis,
+        hrv_formula: hrvFormula, hrv_formula_body: hrvFormulaBody, hrv_formula_cite: hrvFormulaCite,
+        hrv_analysis: hrvAnalysis,
         rhr: rhrCurrent, rhr_base: rhrBase, rhr_dev: rhrDev, rhr_score: rhrScore,
-        rhr_formula: rhrFormula, rhr_analysis: rhrAnalysis,
+        rhr_formula: rhrFormula, rhr_formula_body: rhrFormulaBody, rhr_formula_cite: rhrFormulaCite,
+        rhr_analysis: rhrAnalysis,
         sleep_total: sleepTotalH, deep_pct: deepPct, rem_pct: remPct,
         deep_time: sleepDeepH, rem_time: sleepRemH, awake_count: awakeCount,
         sleep_score: sleepScore, sleep_formula: sleepFormula,
@@ -1040,6 +1111,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         sleep_trend: sleepScoreTrend,
         sleep_deep_trend: sleepDeepTrend,
         ready_trend: readyTrend,
+        // 全量 28 日序列（升序，含 null 缺口），供 7/14/28 标签切片
+        hrv_full: hrvFull, labels_hrv_full: hrvLabels,
+        rhr_full: rhrFull, labels_rhr_full: rhrLabels,
+        ready_full: readyFull, labels_ready_full: readyLabels,
+        sleep_full: sleepFull, sleep_deep_full: sleepDeepFull, labels_sleep_full: sleepLabels,
         patterns: patterns.slice(0, 4),
         advice: advice.slice(0, 3)
       };
@@ -1048,13 +1124,18 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     /* ============================================
        RENDER
        ============================================ */
+    let ZINE_DATA = null;   // 归一化后的完整数据（含全量 28 日序列）
+    let CUR_WIN = 7;         // 当前趋势窗口（7/14/28）
+
     function renderAll(d) {
+      ZINE_DATA = d;
       renderSlide1(d);
       renderSlide2(d);
       renderSlide3(d);
       renderSlide4(d);
       renderSlide5(d);
-      drawAllCharts(d);
+      drawScoreRing(d);
+      redrawTrend(7);        // 初始按 7 日窗口绘制趋势
       renderSlide6(d);
     }
 
@@ -1107,7 +1188,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       document.getElementById('sleepAwakeCount').textContent = d.awake_count;
       document.getElementById('sleepDelta').textContent = '分数：' + d.sleep_score + '/100';
       const sf = document.getElementById('sleepFormula');
-      if (sf) sf.textContent = d.sleep_formula.substring(0, 100) + '...';
+      if (sf && d.sleep_formula) {
+        const sp = splitCitation(d.sleep_formula);
+        sf.innerHTML = '<span class="formula-method">' + escapeHtml(sp.method) + '</span>'
+          + (sp.cite ? '<br><span class="formula-cite">来源：' + escapeHtml(sp.cite) + '</span>' : '');
+      }
       // READINESS
       document.getElementById('readyValue').textContent = d.ready_score;
       document.getElementById('readyTag').textContent = '准备度：' + d.ready_score;
@@ -1116,7 +1201,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       document.getElementById('readyDelta').textContent =
         d.ready_score >= 80 ? '准备度高' : d.ready_score >= 60 ? '准备度中等' : '准备度低';
       const rf = document.getElementById('readyFormula');
-      if (rf) rf.textContent = d.ready_formula.substring(0, 100) + '...';
+      if (rf && d.ready_formula) {
+        const sp = splitCitation(d.ready_formula);
+        rf.innerHTML = '<span class="formula-method">' + escapeHtml(sp.method) + '</span>'
+          + (sp.cite ? '<br><span class="formula-cite">来源：' + escapeHtml(sp.cite) + '</span>' : '');
+      }
       const rd = document.getElementById('readyDetail');
       if (rd) rd.textContent = d.ready_detail;
       // STRESS
@@ -1154,7 +1243,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         dev < 0 ? delta.classList.add('negative') : delta.classList.remove('negative');
       }
       const fEl = document.getElementById(id + 'Formula');
-      if (fEl && formula) fEl.textContent = formula.substring(0, 100) + '...';
+      if (fEl && formula) {
+        const sp = splitCitation(formula);
+        fEl.innerHTML = '<span class="formula-method">' + escapeHtml(sp.method) + '</span>'
+          + (sp.cite ? '<br><span class="formula-cite">来源：' + escapeHtml(sp.cite) + '</span>' : '');
+      }
       const dEl = document.getElementById(id + 'Detail');
       if (dEl && analysis) dEl.textContent = analysis;
       if (id === 'hrv') {
@@ -1174,12 +1267,75 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     /* ============================================
        CHARTS
        ============================================ */
-    function drawAllCharts(d) {
-      drawScoreRing(d);
-      drawTrendChart(d);
-      drawDualChart(d);
-      drawSleepChart(d);
-      drawReadyChart(d);
+    function sliceLast(arr, n) {
+      if (!Array.isArray(arr)) return [];
+      return arr.slice(Math.max(0, arr.length - n));
+    }
+
+    /* 在数据点上方绘制数值标签（白色描边光晕，保证网格线上可读；null 跳过） */
+    function drawValueTag(ctx, x, y, text, color, padTop) {
+      if (text == null || text === '') return;
+      ctx.font = 'bold 11px "Bebas Neue", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let ty = y - 13;
+      if (ty < (padTop || 20) + 2) ty = y + 16;   // 顶部空间不足则移到点下方
+      ctx.lineWidth = 3; ctx.strokeStyle = '#F4EFE6';
+      ctx.strokeText(text, x, ty);
+      ctx.fillStyle = color; ctx.fillText(text, x, ty);
+    }
+
+    /* 右上角图例：items = [{color, text, dash}] */
+    function drawLegend(ctx, w, pad, items) {
+      ctx.font = 'bold 10px "Bebas Neue", sans-serif';
+      ctx.textBaseline = 'middle';
+      const widths = items.map(it => ctx.measureText(it.text).width + (it.dash ? 22 : 16));
+      let x = w - pad.right;
+      for (let i = items.length - 1; i >= 0; i--) {
+        x -= widths[i];
+        const it = items[i];
+        if (it.dash) {
+          ctx.setLineDash([4, 3]); ctx.strokeStyle = it.color; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(x, pad.top - 9); ctx.lineTo(x + 14, pad.top - 9); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = it.color; ctx.textAlign = 'left';
+          ctx.fillText(it.text, x + 18, pad.top - 9);
+        } else {
+          ctx.fillStyle = it.color; ctx.fillRect(x, pad.top - 12, 12, 4);
+          ctx.fillStyle = '#1A1A1A'; ctx.textAlign = 'left';
+          ctx.fillText(it.text, x + 16, pad.top - 9);
+        }
+        x -= 10;
+      }
+    }
+
+    /* 趋势总览：按所选窗口（7/14/28）重绘全部 4 张图 */
+    function redrawTrend(win) {
+      const d = ZINE_DATA;
+      if (!d) return;
+      CUR_WIN = win;
+      const hrv = sliceLast(d.hrv_full, win);
+      const hrvLabels = sliceLast(d.labels_hrv_full, win);
+      const rhr = sliceLast(d.rhr_full, win);
+      const ready = sliceLast(d.ready_full, win);
+      const readyLabels = sliceLast(d.labels_ready_full, win);
+      const sleep = sliceLast(d.sleep_full, win);
+      const deep = sliceLast(d.sleep_deep_full, win);
+      const sleepLabels = sliceLast(d.labels_sleep_full, win);
+
+      drawTrendChart(hrv, hrvLabels);
+      drawDualChart(hrv, rhr, hrvLabels);
+      drawSleepChart(sleep, deep, sleepLabels);
+      drawReadyChart(ready, readyLabels);
+
+      const rb = document.getElementById('trendRibbon');
+      if (rb) rb.textContent = win + '日数据趋势';
+      const ts = document.getElementById('trendSub');
+      if (ts) ts.textContent = win + '日恢复趋势 — ' + (d.date || '');
+      const rs = document.getElementById('readySub');
+      if (rs) rs.textContent = win + '日准备度趋势 — ' + (d.date || '');
+      document.querySelectorAll('.trend-tab').forEach(t => {
+        t.classList.toggle('active', String(t.dataset.win) === String(win));
+      });
     }
 
     function drawScoreRing(d) {
@@ -1243,7 +1399,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       });
     }
 
-    function drawLineData(ctx, data, labels, pad, w, h, color, fillBelow) {
+    function drawLineData(ctx, data, labels, pad, w, h, color, fillBelow, titleText) {
       if (!data || data.length < 2) return;
       const vals = data.filter(v => v != null);
       if (vals.length < 2) return;            // 全缺测则跳过
@@ -1282,44 +1438,42 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       });
       ctx.stroke();
 
-      // dots (跳过 null)
+      // dots + 数值标签（跳过 null）
       data.forEach((v, i) => {
         if (v == null) return;
         const [x, y] = xy(v, i);
         ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#F4EFE6'; ctx.fill();
         ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 2; ctx.stroke();
+        drawValueTag(ctx, x, y, String(Math.round(v)), color, pad.top);
       });
 
       ctx.fillStyle = '#1A1A1A';
       ctx.font = 'bold 12px "Bebas Neue", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(fillBelow ? 'RECOVERY' : 'SLEEP SCORE', pad.left, pad.top - 8);
+      ctx.fillText(titleText || 'SERIES', pad.left, pad.top - 9);
     }
 
-    function drawTrendChart(d) {
+    function drawTrendChart(data, labels) {
       const canvas = document.getElementById('trendChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      const pad = { top: 22, right: 36, bottom: 36, left: 44 };
-      drawLineData(ctx, d.trend, d.trend_labels, pad, canvas.width, canvas.height, '#008F4D', true);
-      document.getElementById('trendSub').textContent = '7日恢复趋势 — ' + (d.date || '');
+      const pad = { top: 30, right: 40, bottom: 38, left: 46 };
+      drawLineData(ctx, data, labels, pad, canvas.width, canvas.height, '#008F4D', true, '恢复指数');
     }
 
-    function drawDualChart(d) {
+    function drawDualChart(hrvData, rhrData, labels) {
       const canvas = document.getElementById('dualChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const w = canvas.width, h = canvas.height;
-      const pad = { top: 22, right: 50, bottom: 36, left: 44 };
+      const pad = { top: 30, right: 52, bottom: 38, left: 46 };
       ctx.clearRect(0, 0, w, h);
+      if (!hrvData || hrvData.length < 2) return;
 
-      const hrvData = d.trend || [];
-      const rhrData = d.rhr_trend || [];
-      const labels = d.trend_labels || [];
       const cw = w - pad.left - pad.right;
       const ch = h - pad.top - pad.bottom;
-      const step = cw / Math.max(1, hrvData.length - 1);
+      const step = cw / (hrvData.length - 1);
 
       // HRV line (left axis, green)
       const hrvVals = hrvData.filter(v => v != null);
@@ -1334,22 +1488,22 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         ctx.fillText(Math.round(hrvMax - (hrvMax - hrvMin) * i / 4), pad.left - 6, y);
       }
       ctx.fillStyle = '#008F4D'; ctx.font = 'bold 10px "Bebas Neue", sans-serif';
-      ctx.textAlign = 'left'; ctx.fillText('HRV (ms)', pad.left, pad.top - 8);
+      ctx.textAlign = 'left'; ctx.fillText('HRV (ms)', pad.left, pad.top - 9);
 
+      const xyH = (v, i) => [pad.left + step * i, pad.top + ch * (1 - (v - hrvMin) / (hrvMax - hrvMin))];
       ctx.beginPath(); ctx.strokeStyle = '#008F4D'; ctx.lineWidth = 3;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       let penH = false;
       hrvData.forEach((v, i) => {
         if (v == null) { penH = false; return; }
-        const x = pad.left + step * i;
-        const y = pad.top + ch * (1 - (v - hrvMin) / (hrvMax - hrvMin));
+        const [x, y] = xyH(v, i);
         penH ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         penH = true;
       });
       ctx.stroke();
 
       // RHR line (right axis, red)
-      const rhrVals = rhrData.filter(v => v != null);
+      const rhrVals = (rhrData || []).filter(v => v != null);
       const rhrMin = rhrVals.length ? Math.max(0, Math.min(...rhrVals) - 3) : 0;
       const rhrMax = rhrVals.length ? Math.max(...rhrVals) + 3 : 100;
       ctx.strokeStyle = '#E8E0D0'; ctx.lineWidth = 1;
@@ -1361,15 +1515,15 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         ctx.fillText(Math.round(rhrMax - (rhrMax - rhrMin) * i / 4), w - pad.right + 6, y);
       }
       ctx.fillStyle = '#b91c1c'; ctx.font = 'bold 10px "Bebas Neue", sans-serif';
-      ctx.textAlign = 'right'; ctx.fillText('RHR (bpm)', w - pad.right, pad.top - 8);
+      ctx.textAlign = 'right'; ctx.fillText('RHR (bpm)', w - pad.right, pad.top - 9);
 
+      const xyR = (v, i) => [pad.left + step * i, pad.top + ch * (1 - (v - rhrMin) / (rhrMax - rhrMin))];
       ctx.beginPath(); ctx.strokeStyle = '#b91c1c'; ctx.lineWidth = 3;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       let penR = false;
       rhrData.forEach((v, i) => {
         if (v == null) { penR = false; return; }
-        const x = pad.left + step * i;
-        const y = pad.top + ch * (1 - (v - rhrMin) / (rhrMax - rhrMin));
+        const [x, y] = xyR(v, i);
         penR ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         penR = true;
       });
@@ -1382,27 +1536,37 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.fillText(lb, x, h - pad.bottom + 8);
       });
+
+      // value tags: HRV 上方(绿)，RHR 下方(红)，避免重叠
+      hrvData.forEach((v, i) => {
+        if (v == null) return;
+        const [x, y] = xyH(v, i);
+        drawValueTag(ctx, x, y - 2, String(Math.round(v)), '#008F4D', pad.top);
+      });
+      rhrData.forEach((v, i) => {
+        if (v == null) return;
+        const [x, y] = xyR(v, i);
+        drawValueTag(ctx, x, y + 2, String(Math.round(v)), '#b91c1c', pad.top);
+      });
+
+      drawLegend(ctx, w, pad, [
+        { color: '#008F4D', text: 'HRV(ms)' },
+        { color: '#b91c1c', text: 'RHR(bpm)' }
+      ]);
     }
 
-    function drawSleepChart(d) {
+    function drawSleepChart(sleepScoreData, deepPctData, labels) {
       const canvas = document.getElementById('sleepChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const w = canvas.width, h = canvas.height;
-      const pad = { top: 22, right: 50, bottom: 36, left: 44 };
-
-      const deepPctData = d.sleep_deep_trend || [];
-      const sleepScoreData = d.sleep_trend || [];
-
-      // always show sleep score on left axis (0-100)
-      const labels = d.trend_labels || [];
-      const mainData = sleepScoreData.length >= 2 ? sleepScoreData : deepPctData;
-      if (mainData.length < 2) return;
-
+      const pad = { top: 30, right: 52, bottom: 38, left: 46 };
       ctx.clearRect(0, 0, w, h);
+      if (!sleepScoreData || sleepScoreData.length < 2) return;
+
       const cw = w - pad.left - pad.right;
       const ch = h - pad.top - pad.bottom;
-      const step = cw / (mainData.length - 1);
+      const step = cw / (sleepScoreData.length - 1);
 
       // left axis: sleep score (0-100)
       const scoreMin = 0, scoreMax = 100;
@@ -1415,23 +1579,21 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         ctx.fillText(Math.round(scoreMax - (scoreMax - scoreMin) * i / 4), pad.left - 6, y);
       }
       ctx.fillStyle = '#008F4D'; ctx.font = 'bold 10px "Bebas Neue", sans-serif';
-      ctx.textAlign = 'left'; ctx.fillText('SLEEP SCORE', pad.left, pad.top - 8);
+      ctx.textAlign = 'left'; ctx.fillText('SLEEP SCORE', pad.left, pad.top - 9);
 
-      // sleep score line (green)
+      const xyS = (v, i) => [pad.left + step * i, pad.top + ch * (1 - (Math.min(v, 100) - scoreMin) / (scoreMax - scoreMin))];
       ctx.beginPath(); ctx.strokeStyle = '#008F4D'; ctx.lineWidth = 3;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      mainData.forEach((v, i) => {
-        const x = pad.left + step * i;
-        const y = pad.top + ch * (1 - (Math.min(v, 100) - scoreMin) / (scoreMax - scoreMin));
+      sleepScoreData.forEach((v, i) => {
+        const [x, y] = xyS(v, i);
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       });
       ctx.stroke();
 
-      // right axis: deep% (auto-scale, min 0)
+      // right axis: deep% (auto-scale)
       const dpMin = 0;
-      const dpMax = deepPctData.length >= 2
-        ? Math.max(40, Math.ceil(Math.max(...deepPctData) / 5) * 5 + 5)
-        : 40;
+      const dpMax = deepPctData && deepPctData.length >= 2
+        ? Math.max(40, Math.ceil(Math.max(...deepPctData) / 5) * 5 + 5) : 40;
       ctx.strokeStyle = '#E8E0D0'; ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = pad.top + ch * i / 4;
@@ -1441,57 +1603,50 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         ctx.fillText(Math.round(dpMax - (dpMax - dpMin) * i / 4), w - pad.right + 6, y);
       }
       ctx.fillStyle = '#00A85D'; ctx.font = 'bold 10px "Bebas Neue", sans-serif';
-      ctx.textAlign = 'right'; ctx.fillText('DEEP%', w - pad.right, pad.top - 8);
+      ctx.textAlign = 'right'; ctx.fillText('DEEP%', w - pad.right, pad.top - 9);
 
-      // deep% overlay (dashed, right axis)
-      if (deepPctData.length >= 2) {
-        const dpStep = cw / (deepPctData.length - 1);
+      const xyD = (v, i) => [pad.left + step * i, pad.top + ch * (1 - (Math.min(v, dpMax) - dpMin) / (dpMax - dpMin))];
+      if (deepPctData && deepPctData.length >= 2) {
         ctx.beginPath(); ctx.strokeStyle = '#00A85D'; ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.setLineDash([4, 4]); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         deepPctData.forEach((v, i) => {
-          const x = pad.left + dpStep * i;
-          const y = pad.top + ch * (1 - (Math.min(v, dpMax) - dpMin) / (dpMax - dpMin));
+          const [x, y] = xyD(v, i);
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         });
-        ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.stroke(); ctx.setLineDash([]);
       }
 
-      // x labels
-      labels.slice(-mainData.length).forEach((lb, i) => {
+      // x labels (sleep labels 与 sleep 序列等长)
+      labels.forEach((lb, i) => {
         const x = pad.left + step * i;
         ctx.fillStyle = '#1A1A1A'; ctx.font = '11px "Space Grotesk", sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.fillText(lb, x, h - pad.bottom + 8);
       });
 
-      // legend
-      const legendY = h - 6;
-      ctx.fillStyle = '#008F4D'; ctx.fillRect(pad.left, legendY - 8, 18, 3);
-      ctx.fillStyle = '#1A1A1A'; ctx.font = '10px "Space Grotesk", sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('睡眠分数', pad.left + 22, legendY);
-      if (deepPctData.length >= 2) {
-        ctx.setLineDash([3, 3]); ctx.strokeStyle = '#00A85D'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(pad.left + 80, legendY - 4); ctx.lineTo(pad.left + 98, legendY - 4); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillText('深睡%', pad.left + 102, legendY);
-      }
+      // value tags: 睡眠分数 上方(绿)，深睡% 下方(浅绿)
+      sleepScoreData.forEach((v, i) => {
+        const [x, y] = xyS(v, i);
+        drawValueTag(ctx, x, y - 2, String(Math.round(v)), '#008F4D', pad.top);
+      });
+      if (deepPctData) deepPctData.forEach((v, i) => {
+        if (v == null) return;
+        const [x, y] = xyD(v, i);
+        drawValueTag(ctx, x, y + 2, String(Math.round(v)), '#00A85D', pad.top);
+      });
+
+      drawLegend(ctx, w, pad, [
+        { color: '#008F4D', text: '睡眠分数' },
+        { color: '#00A85D', text: '深睡%', dash: true }
+      ]);
     }
 
-    function drawReadyChart(d) {
+    function drawReadyChart(data, labels) {
       const canvas = document.getElementById('readyChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      const pad = { top: 20, right: 36, bottom: 34, left: 44 };
-      drawLineData(ctx, d.ready_trend, d.trend_labels, pad, canvas.width, canvas.height, '#008F4D', true);
-      document.getElementById('readySub').textContent = '准备度7日趋势 — ' + (d.date || '');
-
-      // legend
-      ctx.fillStyle = '#008F4D';
-      ctx.fillRect(pad.left, canvas.height - 8, 18, 3);
-      ctx.fillStyle = '#1A1A1A'; ctx.font = '10px "Space Grotesk", sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('准备度分数', pad.left + 22, canvas.height - 4);
+      const pad = { top: 28, right: 40, bottom: 36, left: 46 };
+      drawLineData(ctx, data, labels, pad, canvas.width, canvas.height, '#008F4D', true, '准备度');
     }
 
     /* ============================================
@@ -1499,7 +1654,10 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
        ============================================ */
     function renderSlide5(d) {
       // HRV
-      document.getElementById('hrvFormulaBox').textContent = d.hrv_formula;
+      const hb = document.getElementById('hrvFormulaBody');
+      if (hb) hb.textContent = d.hrv_formula_body || d.hrv_formula || '';
+      const hc = document.getElementById('hrvFormulaCite');
+      if (hc) hc.textContent = d.hrv_formula_cite ? '来源：' + d.hrv_formula_cite : '';
       document.getElementById('hrvAnalysisText').innerHTML = d.hrv_analysis;
       document.getElementById('hrvScoreChip').textContent = '分数：' + d.hrv_score;
       if (d.hrv_score >= 80) document.getElementById('hrvScoreChip').classList.add('good');
@@ -1507,7 +1665,10 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       document.getElementById('hrvDevChip').textContent = '偏差：' + (d.hrv_dev_pct >= 0 ? '+' : '') + d.hrv_dev_pct.toFixed(2) + '%';
 
       // RHR
-      document.getElementById('rhrFormulaBox').textContent = d.rhr_formula;
+      const rb = document.getElementById('rhrFormulaBody');
+      if (rb) rb.textContent = d.rhr_formula_body || d.rhr_formula || '';
+      const rc = document.getElementById('rhrFormulaCite');
+      if (rc) rc.textContent = d.rhr_formula_cite ? '来源：' + d.rhr_formula_cite : '';
       document.getElementById('rhrAnalysisText').innerHTML = d.rhr_analysis;
       document.getElementById('rhrScoreChip').textContent = '分数：' + d.rhr_score;
       if (d.rhr_score >= 80) document.getElementById('rhrScoreChip').classList.add('good');
@@ -1564,6 +1725,9 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
        ============================================ */
     async function init() {
       setupScrollHint();
+      document.querySelectorAll('.trend-tab').forEach(t => {
+        t.addEventListener('click', () => redrawTrend(parseInt(t.dataset.win, 10) || 7));
+      });
       const data = await loadData();
       if (data) renderAll(data);
     }
@@ -1611,6 +1775,24 @@ def fmt_date_zh(date_str):
         return f"{dt.year}年{dt.month}月{dt.day}日"
     except Exception:
         return date_str
+
+
+def split_citation(formula: str):
+    """拆分'方法定义 + 文献引用'：引用（Plews 2014 [R7]）单独抽出作脚注。
+
+    返回 (method, cite)。例如
+    'rolling_mean(last_7_nights_HRV), Plews 2014 [R7]'
+        → ('rolling_mean(last_7_nights_HRV)', 'Plews 2014 [R7]')
+    """
+    if not formula:
+        return ("", "")
+    m = re.match(
+        r"^(.*?),\s*([A-Za-z][\w.&''-]*(?:\s+et\s+al\.?)?\s*\d{4}\s*\[[^\]]+\])\s*$",
+        formula,
+    )
+    if m:
+        return (m.group(1).strip(), m.group(2).strip())
+    return (formula, "")
 
 
 # ── Helper: 构建 FALLBACK 数据 ──────────────────────────────────────────────
@@ -1881,7 +2063,8 @@ def build_render_data(kpi: dict, fallback: dict) -> dict:
         "TREND_SUB": f"7日恢复趋势 — {kpi['date']}",
         "READY_SUB": f"准备度7日趋势 — {kpi['date']}",
         # Slide 5
-        "HRV_FORMULA_BOX": baselines.get("formulas", {}).get("hrv_baseline", ""),
+        "HRV_FORMULA_BODY": split_citation(baselines.get("formulas", {}).get("hrv_baseline", ""))[0],
+        "HRV_FORMULA_CITE": split_citation(baselines.get("formulas", {}).get("hrv_baseline", ""))[1],
         "HRV_ANALYSIS_TEXT": (
             f"心率变异性 {hrv_dim.get('last_night_ms', 0)}ms，"
             f"基准 {baselines['hrv_baseline_7d']}ms。"
@@ -1893,7 +2076,8 @@ def build_render_data(kpi: dict, fallback: dict) -> dict:
         "HRV_SCORE_CHIP": f"分数：{hrv_dim['score']}",
         "HRV_BASE_CHIP": f"基准：{baselines['hrv_baseline_7d']}ms",
         "HRV_DEV_CHIP": f"偏差：{hrv_dim.get('pct_change_pct', 0):+.2f}%",
-        "RHR_FORMULA_BOX": baselines.get("formulas", {}).get("rhr_baseline", ""),
+        "RHR_FORMULA_BODY": split_citation(baselines.get("formulas", {}).get("rhr_baseline", ""))[0],
+        "RHR_FORMULA_CITE": split_citation(baselines.get("formulas", {}).get("rhr_baseline", ""))[1],
         "RHR_ANALYSIS_TEXT": (
             f"静息心率 {rhr_dim['current_bpm']} 次/分，"
             f"基准 {rhr_dim['baseline_bpm']} 次/分（偏差 {rhr_dim['deviation']:+d} 次/分）。"
@@ -1919,15 +2103,15 @@ def build_render_data(kpi: dict, fallback: dict) -> dict:
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="从 kpi_today.json 生成 wellness_zine.html")
+    parser = argparse.ArgumentParser(description="从 kpi_today.json 生成 recovery_zine.html")
     parser.add_argument("--output", "-o", default=None,
-                        help="输出路径（默认: output/html/wellness_zine.html）")
+                        help="输出路径（默认: output/html/recovery_zine.html）")
     parser.add_argument("--kpi", default=None,
                         help="kpi_today.json 路径（默认: output/kpi_today.json）")
     args = parser.parse_args()
 
     kpi_path = Path(args.kpi) if args.kpi else PROJECT_ROOT / "output" / "kpi_today.json"
-    output_path = Path(args.output) if args.output else PROJECT_ROOT / "output" / "html" / "wellness_zine.html"
+    output_path = Path(args.output) if args.output else PROJECT_ROOT / "output" / "html" / "recovery_zine.html"
 
     print("=" * 60)
     print(f"build_zine.py — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -1960,13 +2144,6 @@ def main():
 
     # 5. Write output
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Backup if exists
-    if output_path.exists():
-        backup_path = output_path.with_suffix(".html.bak")
-        backup_path.write_text(output_path.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"\n[2] Backed up existing file to: {backup_path}")
-
     output_path.write_text(html, encoding="utf-8")
 
     print(f"\n[3] Generated: {output_path}")

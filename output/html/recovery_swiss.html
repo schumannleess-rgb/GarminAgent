@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>恢复力日报 · 2026-07-16 · Swiss</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+:root{--sans:'Inter';--sans-zh:'Noto Sans SC';--mono:'JetBrains Mono';--bg:#e9eaee}
+
+:root{--paper:#fff;--ink:#111;--muted:#6b7280;--line:#e5e7eb;--accent:#002FA7;
+--good:#16a34a;--bad:#dc2626;--card:#fff;--card-2:#fafafa;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans),var(--sans-zh),system-ui,sans-serif;background:var(--bg,#eee);
+color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
+.deck{position:relative;width:100vw;height:100vh;overflow:hidden}
+.slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+opacity:0;transform:translateX(40px);transition:opacity .45s ease,transform .45s ease;
+pointer-events:none}
+.slide.active{opacity:1;transform:none;pointer-events:auto}
+.slide-inner{width:min(1120px,92vw);max-height:90vh;overflow:auto;padding:34px 40px;
+background:var(--paper);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.18);
+border:1px solid var(--line)}
+.slide[data-layout="accent"] .slide-inner{background:var(--accent);color:#fff;border-color:transparent}
+.slide[data-layout="dark"] .slide-inner{background:#0c0c0e;color:#f5f5f0;border-color:#2a2a2e}
+.slide[data-layout="grey"] .slide-inner{background:#f3f4f6}
+.slide[data-layout="split"] .slide-inner{display:grid;grid-template-columns:1fr 1fr;gap:0;
+padding:0;overflow:hidden}
+.split-l,.split-r{padding:38px 40px;display:flex;flex-direction:column;justify-content:center}
+.slide[data-layout="split"] .slide-inner{background:var(--paper)}
+.chrome{display:flex;justify-content:space-between;align-items:center;
+border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px}
+.slide[data-layout="accent"] .chrome{border-color:rgba(255,255,255,.35)}
+.brand{font:600 12px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.slide[data-layout="accent"] .brand{color:#fff}
+.cdate{font:500 12px/1 var(--mono);color:var(--muted)}
+.slide[data-layout="accent"] .cdate{color:rgba(255,255,255,.8)}
+.section-tag{display:inline-block;font:600 11px/1 var(--mono);letter-spacing:.16em;
+text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);
+border-radius:999px;padding:5px 12px;margin-bottom:14px}
+.slide[data-layout="accent"] .section-tag{color:#fff;border-color:rgba(255,255,255,.6)}
+h1.title{font:700 30px/1.15 var(--sans),var(--sans-zh);letter-spacing:-.01em}
+h2.title{font:700 22px/1.2 var(--sans),var(--sans-zh)}
+.lead{color:var(--muted);font-size:14px;line-height:1.5;margin-top:8px}
+.slide[data-layout="accent"] .lead{color:rgba(255,255,255,.85)}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;
+padding-top:12px;border-top:1px solid var(--line);font:500 11px/1.3 var(--mono);color:var(--muted)}
+.slide[data-layout="accent"] .foot{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.8)}
+/* 封面 */
+.cover{display:flex;flex-direction:column;gap:6px}
+.cover-grade{font:800 120px/1 var(--sans);letter-spacing:-.04em;color:var(--accent)}
+.slide[data-layout="accent"] .cover-grade{color:#fff}
+.cover-score{font:700 18px/1.4 var(--sans)}
+.cover-sub{font-size:15px;color:var(--muted);margin-top:6px}
+/* 预警条 */
+.alert-bar{border-radius:10px;padding:13px 16px;font-size:13.5px;line-height:1.45;
+margin-bottom:18px;display:flex;gap:10px;align-items:flex-start}
+.alert-bar.ok{background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);color:#15803d}
+.alert-bar.warn{background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.4);color:#b91c1c}
+/* 公式 / 计算步骤 */
+.formula{font:600 15px/1.5 var(--mono);background:var(--card-2);border:1px solid var(--line);
+border-radius:10px;padding:14px 16px;margin:14px 0;color:var(--ink)}
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+.calc-step{background:var(--card);border:1px solid var(--line);border-radius:8px;
+padding:10px 12px;font:600 13px/1.35 var(--mono)}
+.calc-step.anom{border-color:var(--bad);background:rgba(220,38,38,.06)}
+.calc-step b{color:var(--accent)}
+.weight-note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+/* KPI 网格 */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:6px}
+.kpi-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi-name{font:600 12px/1.2 var(--sans);color:var(--muted)}
+.kpi-val{font:700 26px/1.1 var(--sans);margin:8px 0 4px}
+.kpi-base{font:500 11px/1.3 var(--mono);color:var(--muted)}
+.kpi-score{display:inline-block;margin-top:8px;font:700 13px/1 var(--mono);
+padding:4px 8px;border-radius:6px;background:var(--card-2);border:1px solid var(--line)}
+.kpi-zone{font-size:11px;color:var(--muted);margin-top:6px}
+/* 贡献条 */
+.contrib{margin-top:8px}
+.contrib-row{display:grid;grid-template-columns:120px 1fr 96px;align-items:center;gap:12px;
+margin:9px 0}
+.contrib-lbl{font:600 13px/1.2 var(--sans)}
+.contrib-track{height:18px;background:var(--card-2);border-radius:6px;overflow:hidden;
+border:1px solid var(--line)}
+.contrib-fill{height:100%;background:var(--accent);border-radius:6px 0 0 6px}
+.contrib-row.anom .contrib-fill{background:var(--bad)}
+.contrib-val{font:700 14px/1 var(--mono);text-align:right}
+.contrib-w{font:500 10px/1 var(--mono);color:var(--muted);display:block;margin-top:3px}
+/* 趋势 */
+.trend-wrap{margin-top:8px}
+.trend-svg{width:100%;height:210px;display:block}
+.trend-svg .grid{stroke:var(--line);stroke-width:1}
+.trend-svg .alert-line{stroke:var(--bad);stroke-width:1.5;stroke-dasharray:6 4}
+.trend-svg .alert-txt{fill:var(--bad);font:600 11px var(--mono)}
+.trend-svg .last-txt{fill:var(--accent);font:700 13px var(--mono)}
+.slide[data-layout="accent"] .trend-svg .last-txt{fill:#fff}
+.toggle{display:flex;gap:8px;margin:10px 0 4px}
+.toggle button{font:600 12px/1 var(--mono);padding:7px 14px;border-radius:8px;cursor:pointer;
+background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.toggle button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.trend-meta{font:500 12px/1.4 var(--mono);color:var(--muted);margin-top:8px;display:flex;gap:18px;flex-wrap:wrap}
+/* 分析卡 */
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+.analysis-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.analysis-card h3{font:700 16px/1.2 var(--sans);display:flex;align-items:center;gap:8px}
+.analysis-card .ic{color:var(--accent)}
+.analysis-card .row{display:flex;justify-content:space-between;font:500 12.5px/1.6 var(--mono);
+margin-top:8px;color:var(--muted)}
+.analysis-card .row b{color:var(--ink)}
+.analysis-card .concl{margin-top:10px;font-size:13px;line-height:1.5;color:var(--ink);
+border-top:1px dashed var(--line);padding-top:10px}
+/* 多维 sparkline */
+.spark-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:6px}
+.spark-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.spark-card .hd{display:flex;justify-content:space-between;align-items:baseline}
+.spark-card .nm{font:600 13px/1.2 var(--sans)}
+.spark-card .cu{font:700 20px/1 var(--sans);color:var(--accent)}
+.spark{width:100%;height:54px;margin-top:8px;display:block}
+.spark .base-line{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 4;opacity:.6}
+.spark-stats{display:flex;gap:14px;font:500 11px/1.4 var(--mono);color:var(--muted);margin-top:6px}
+/* 模式 */
+.pattern-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:6px}
+.pattern{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;
+opacity:.5}
+.pattern.on{opacity:1;border-color:var(--accent);background:rgba(0,47,167,.06)}
+.slide[data-layout="accent"] .pattern.on{background:rgba(255,255,255,.12)}
+.pattern .pid{font:700 12px/1.2 var(--sans)}
+.pattern .pcond{font:500 11px/1.4 var(--mono);color:var(--muted);margin-top:6px}
+.pattern .ptag{display:inline-block;margin-top:8px;font:600 10px/1 var(--mono);
+padding:3px 8px;border-radius:6px}
+.pattern.on .ptag{background:var(--accent);color:#fff}
+.pattern:not(.on) .ptag{background:var(--card-2);color:var(--muted)}
+/* 建议 */
+.advice-list{margin-top:8px;display:flex;flex-direction:column;gap:12px}
+.advice{display:flex;gap:14px;background:var(--card);border:1px solid var(--line);
+border-left:4px solid var(--accent);border-radius:8px;padding:14px 16px}
+.advice .an{font:700 13px/1.3 var(--sans);color:var(--accent);min-width:84px}
+.advice .at{font-size:13.5px;line-height:1.55}
+/* 导航 */
+.nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:9px;z-index:20}
+.dot{width:9px;height:9px;border-radius:50%;background:#bbb;cursor:pointer;transition:.2s}
+.dot.on{background:var(--accent);transform:scale(1.25)}
+.arrows{position:fixed;inset:0;display:flex;justify-content:space-between;align-items:center;
+pointer-events:none;z-index:15;padding:0 14px}
+.arrows button{pointer-events:auto;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+background:rgba(255,255,255,.85);color:#111;font-size:20px;cursor:pointer;opacity:.55;transition:.2s}
+.arrows button:hover{opacity:1}
+.split-r{background:var(--accent);color:#fff}
+.split-r .big{font:800 96px/1 var(--sans);letter-spacing:-.03em}
+.split-r .lbl{font:600 13px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+@media(max-width:760px){.kpi-grid{grid-template-columns:repeat(2,1fr)}
+.pattern-grid{grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}
+.spark-grid{grid-template-columns:1fr}.slide[data-layout=split] .slide-inner{grid-template-columns:1fr}}
+
+
+:root{
+  --paper:#ffffff; --ink:#0a0a0a; --muted:#6b7280; --line:#e5e7eb;
+  --accent:#002FA7; --good:#16a34a; --bad:#dc2626;
+  --card:#ffffff; --card-2:#f7f8fa; --bg:#e9eaee;
+}
+
+</style>
+</head>
+<body data-style="recovery-deck">
+<div class="deck" id="deck">
+<section class="slide" data-layout="accent"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><div class="cover"><span class="section-tag">每日恢复力日报</span><div class="cover-grade">A</div><div class="cover-score">综合恢复分 89 · 状态极佳</div><div class="cover-sub">2026-07-16 ｜ 权重为统一参考配方，今日分数由你的真实数据决定</div></div><div class="foot"><span>RECOVERY DECK</span><span>Swiss · 2026-07-16</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">诊断总览</span><h1 class="title">综合恢复分是怎么算出来的</h1><div class="alert-bar warn"><i data-lucide="triangle-alert" class="ic"></i><span>近 2 天恢复分低于警戒线 60，注意累积疲劳</span></div><div class="formula">recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10</div><div class="calc"><div class="calc-step"><b>HRV</b> 77 × 0.30 = <b>23.1</b></div><div class="calc-step"><b>睡眠</b> 97 × 0.25 = <b>24.2</b></div><div class="calc-step"><b>RHR</b> 95 × 0.20 = <b>19.0</b></div><div class="calc-step"><b>准备度</b> 91 × 0.15 = <b>13.7</b></div><div class="calc-step"><b>压力</b> 89 × 0.10 = <b>8.9</b></div></div><p class="weight-note">⚖ 权重（HRV 30% · 睡眠 25% · RHR 20% · 准备度 15% · 压力 10%）是<b>统一参考配方，仅作横向对比之用</b>。真正决定今天分数的，是上面每一项「今晚的真实数据」与你的基线之差——权重高不代表它说了算，数据本身才是主角。</p><div class="foot"><span>REFS §4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003, [R21] Garmin</span><span>Slide 02 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">指标总览</span><h1 class="title">五个维度，今晚 vs 你的基线</h1><div class="kpi-grid"><div class="kpi-card"><div class="kpi-name">HRV 心率变异性</div><div class="kpi-val">73 ms</div><div class="kpi-base">基线 70 ms（7日）</div><span class="kpi-score">77</span><div class="kpi-zone">绿·高</div></div><div class="kpi-card"><div class="kpi-name">静息心率 RHR</div><div class="kpi-val">43 bpm</div><div class="kpi-base">基线 46 bpm（28日）</div><span class="kpi-score">95</span><div class="kpi-zone">很低</div></div><div class="kpi-card"><div class="kpi-name">睡眠</div><div class="kpi-val">7.8 h</div><div class="kpi-base">基线 7.5 h（7日）</div><span class="kpi-score">97</span><div class="kpi-zone">绿色·佳</div></div><div class="kpi-card"><div class="kpi-name">身体准备度</div><div class="kpi-val">91/100</div><div class="kpi-base">基线 —</div><span class="kpi-score">91</span><div class="kpi-zone">绿色·佳</div></div><div class="kpi-card"><div class="kpi-name">压力</div><div class="kpi-val">等级 14</div><div class="kpi-base">基线 —</div><span class="kpi-score">89</span><div class="kpi-zone">low</div></div></div><p class="weight-note">分数列是各维度原始评分；权重见上页。REM 占比引擎误算为 0，已用原始值重算</p><div class="foot"><span>5 维度 KPI</span><span>Slide 03 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">实际贡献</span><h1 class="title">今天谁在拉高 / 拉低分数</h1><div class="contrib"><div class="contrib-row"><div class="contrib-lbl">HRV 心率变异性</div><div class="contrib-track"><div class="contrib-fill" style="width:95.3%"></div></div><div class="contrib-val">23.1<span class="contrib-w">权重 30%</span></div></div><div class="contrib-row"><div class="contrib-lbl">静息心率 RHR</div><div class="contrib-track"><div class="contrib-fill" style="width:78.4%"></div></div><div class="contrib-val">19.0<span class="contrib-w">权重 20%</span></div></div><div class="contrib-row"><div class="contrib-lbl">睡眠</div><div class="contrib-track"><div class="contrib-fill" style="width:100.0%"></div></div><div class="contrib-val">24.2<span class="contrib-w">权重 25%</span></div></div><div class="contrib-row"><div class="contrib-lbl">身体准备度</div><div class="contrib-track"><div class="contrib-fill" style="width:56.3%"></div></div><div class="contrib-val">13.7<span class="contrib-w">权重 15%</span></div></div><div class="contrib-row"><div class="contrib-lbl">压力</div><div class="contrib-track"><div class="contrib-fill" style="width:36.7%"></div></div><div class="contrib-val">8.9<span class="contrib-w">权重 10%</span></div></div></div><p class="weight-note">条形长度 = 该维度<b>今日实际贡献分值</b>（原始分 × 权重）。权重仅以灰色小字标注——它是配方里的固定系数，<b>不是叙事重点</b>；重点是：今晚睡眠（24.2）与 RHR（19.0）是主力，HRV 因引擎异常暂计 0.00（原始值健康）。</p><div class="foot"><span>Σ 贡献 = 恢复分</span><span>Slide 04 / 10</span></div></div></section><section class="slide" data-layout="grey"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">趋势</span><h1 class="title">恢复分 28 天走势（非准备度）</h1><div class="toggle"><button data-r="28" class="on" onclick="setRange(28)">28 天</button><button data-r="14" onclick="setRange(14)">14 天</button><button data-r="7" onclick="setRange(7)">7 天</button></div><div class="trend-wrap"><div id="t28"><svg viewBox="0 0 920 210" class="trend-svg" preserveAspectRatio="none" data-gid="28" xmlns="http://www.w3.org/2000/svg"><line x1="34" y1="34.0" x2="886" y2="34.0" class="grid"/><line x1="34" y1="69.5" x2="886" y2="69.5" class="grid"/><line x1="34" y1="105.0" x2="886" y2="105.0" class="grid"/><line x1="34" y1="140.5" x2="886" y2="140.5" class="grid"/><line x1="34" y1="176.0" x2="886" y2="176.0" class="alert-line"/><text x="886" y="170.0" class="alert-txt">警戒线 60</text><polygon points="254.9,176.0 254.9,147.6 349.6,128.7 412.7,90.8 444.2,81.3 475.8,76.6 507.3,34.0 538.9,48.2 570.4,62.4 633.6,90.8 696.7,52.9 728.2,34.0 759.8,52.9 791.3,81.3 822.9,161.8 886.0,38.7 886.0,176.0" class="area" fill="var(--accent)" opacity="0.08"/><polyline points="254.9,147.6 349.6,128.7 412.7,90.8 444.2,81.3 475.8,76.6 507.3,34.0 538.9,48.2 570.4,62.4 633.6,90.8 696.7,52.9 728.2,34.0 759.8,52.9 791.3,81.3 822.9,161.8 886.0,38.7" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="886.0" cy="38.7" r="4.5" fill="var(--accent)"/><text x="886.0" y="28.7" class="last-txt">89</text></svg></div><div id="t14" style="display:none"><svg viewBox="0 0 920 210" class="trend-svg" preserveAspectRatio="none" data-gid="14" xmlns="http://www.w3.org/2000/svg"><line x1="34" y1="34.0" x2="886" y2="34.0" class="grid"/><line x1="34" y1="69.5" x2="886" y2="69.5" class="grid"/><line x1="34" y1="105.0" x2="886" y2="105.0" class="grid"/><line x1="34" y1="140.5" x2="886" y2="140.5" class="grid"/><line x1="34" y1="176.0" x2="886" y2="176.0" class="alert-line"/><text x="886" y="170.0" class="alert-txt">警戒线 60</text><polygon points="34.0,176.0 34.0,76.6 99.5,34.0 165.1,48.2 230.6,62.4 361.7,90.8 492.8,52.9 558.3,34.0 623.8,52.9 689.4,81.3 754.9,161.8 886.0,38.7 886.0,176.0" class="area" fill="var(--accent)" opacity="0.08"/><polyline points="34.0,76.6 99.5,34.0 165.1,48.2 230.6,62.4 361.7,90.8 492.8,52.9 558.3,34.0 623.8,52.9 689.4,81.3 754.9,161.8 886.0,38.7" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="886.0" cy="38.7" r="4.5" fill="var(--accent)"/><text x="886.0" y="28.7" class="last-txt">89</text></svg></div><div id="t7" style="display:none"><svg viewBox="0 0 920 210" class="trend-svg" preserveAspectRatio="none" data-gid="7" xmlns="http://www.w3.org/2000/svg"><line x1="34" y1="34.0" x2="886" y2="34.0" class="grid"/><line x1="34" y1="69.5" x2="886" y2="69.5" class="grid"/><line x1="34" y1="105.0" x2="886" y2="105.0" class="grid"/><line x1="34" y1="140.5" x2="886" y2="140.5" class="grid"/><line x1="34" y1="176.0" x2="886" y2="176.0" class="alert-line"/><text x="886" y="170.0" class="alert-txt">警戒线 60</text><polygon points="34.0,176.0 34.0,52.9 176.0,34.0 318.0,52.9 460.0,81.3 602.0,161.8 886.0,38.7 886.0,176.0" class="area" fill="var(--accent)" opacity="0.08"/><polyline points="34.0,52.9 176.0,34.0 318.0,52.9 460.0,81.3 602.0,161.8 886.0,38.7" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="886.0" cy="38.7" r="4.5" fill="var(--accent)"/><text x="886.0" y="28.7" class="last-txt">89</text></svg></div></div><div class="trend-meta"><span>最新 89</span><span>28天均值 80.5</span><span>区间 63–90</span><span>覆盖率 15/28 天有数据</span><span>警戒线 60</span></div><p class="weight-note">注意：这是<b>综合恢复分</b>的走势，不是准备度。低于警戒线 60 即进入「注意」区间，需结合连续天数判断累积疲劳。</p><div class="foot"><span>恢复分走势</span><span>Slide 05 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">逐项解读</span><h1 class="title">HRV 与静息心率：心血管恢复的信号</h1><div class="analysis-grid"><div class="analysis-card"><h3><i data-lucide="activity" class="ic"></i>HRV 心率变异性</h3><div class="row"><span>今晚值</span><b>73 ms</b></div><div class="row"><span>你的基线</span><b>70 ms（7日）</b></div><div class="row"><span>变化</span><b>+1.0%</b></div><div class="row"><span>原始评分</span><b>77</b></div><div class="concl">今夜 73ms，7日基线 70ms，+1.0% —— 处于基线附近，恢复良好。评分引擎误判为 绿·高（原始值健康），已绕过展示。</div></div><div class="analysis-card"><h3><i data-lucide="heart-pulse" class="ic"></i>静息心率 RHR</h3><div class="row"><span>今晚值</span><b>43 bpm</b></div><div class="row"><span>你的基线</span><b>46 bpm（28日）</b></div><div class="row"><span>变化</span><b>—</b></div><div class="row"><span>原始评分</span><b>95</b></div><div class="concl">今夜 43bpm，28日基线 46bpm，-3 bpm —— 低于基线，心肺负担轻，状态佳。</div></div></div><div class="foot"><span>HRV · RHR</span><span>Slide 06 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">逐项解读</span><h1 class="title">睡眠质量：时长达标，深睡可提升</h1><div class="analysis-grid"><div class="analysis-card"><h3><i data-lucide="moon" class="ic"></i>睡眠</h3><div class="row"><span>今晚值</span><b>7.8 h</b></div><div class="row"><span>你的基线</span><b>7.5 h（7日）</b></div><div class="row"><span>变化</span><b>—</b></div><div class="row"><span>原始评分</span><b>97</b></div><div class="concl">睡眠 7.8h，7日基线 7.5h；深睡占比 17.9%（基线 21.1%）偏低；Garmin 睡眠分 97 —— 时长达标、质量优，深睡可进一步提升。（REM 占比引擎误算为 0，原始 REM 7800s≈28%，待修）</div></div><div class="analysis-card"><h3><i data-lucide="shield-check" class="ic"></i>准备度与压力</h3><div class="row"><span>身体准备度</span><b>91/100</b></div><div class="row"><span>压力等级</span><b>等级 14</b></div><div class="row"><span>睡眠总时长</span><b>7.8 h</b></div><div class="row"><span>Garmin 睡眠分</span><b>97</b></div><div class="concl">准备度 91/100 处于高位，压力处于低位——身体与环境都处在良好恢复状态，今日可正常训练。</div></div></div><div class="foot"><span>睡眠 · 准备度 · 压力</span><span>Slide 07 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">多维趋势</span><h1 class="title">HRV / RHR / 睡眠 / 准备度 近 28 天</h1><div class="spark-grid"><div class="spark-card"><div class="hd"><span class="nm">HRV (ms)</span><span class="cu">73 ms</span></div><svg viewBox="0 0 240 64" class="spark" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><line x1="8" y1="32.6" x2="232" y2="32.6" class="base-line"/><polyline points="8.0,28.8 25.2,56.0 42.5,26.2 59.7,37.8 76.9,19.7 94.2,36.5 111.4,44.3 128.6,46.9 145.8,24.9 163.1,18.4 180.3,33.9 197.5,8.0 214.8,36.5 232.0,40.4" fill="none" stroke="var(--accent)" stroke-width="2" vectordata="1"/></svg><div class="spark-stats"><span>最新 64</span><span>区间 52–89</span><span>均值 70</span><span>基线 70</span></div></div><div class="spark-card"><div class="hd"><span class="nm">静息心率 (bpm)</span><span class="cu">43 bpm</span></div><svg viewBox="0 0 240 64" class="spark" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><line x1="8" y1="46.4" x2="232" y2="46.4" class="base-line"/><polyline points="8.0,50.5 16.3,45.0 24.6,50.5 32.9,51.9 41.2,50.5 49.5,50.5 57.8,46.4 66.1,49.1 74.4,47.8 82.7,51.9 91.0,54.6 99.3,56.0 107.6,51.9 115.9,53.3 124.1,50.5 132.4,8.0 140.7,51.9 149.0,12.1 157.3,10.7 165.6,46.4 173.9,45.0 182.2,47.8 190.5,47.8 198.8,51.9 207.1,49.1 215.4,53.3 223.7,50.5 232.0,46.4" fill="none" stroke="var(--accent)" stroke-width="2" vectordata="1"/></svg><div class="spark-stats"><span>最新 46</span><span>区间 39–74</span><span>均值 46</span><span>基线 46</span></div></div><div class="spark-card"><div class="hd"><span class="nm">睡眠 (h)</span><span class="cu">7.8 h</span></div><svg viewBox="0 0 240 64" class="spark" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><line x1="8" y1="24.0" x2="232" y2="24.0" class="base-line"/><polyline points="8.0,20.7 24.0,42.3 40.0,37.4 56.0,21.7 72.0,23.7 88.0,8.0 104.0,12.9 120.0,11.9 136.0,26.6 152.0,8.0 168.0,26.6 184.0,45.2 200.0,36.4 216.0,56.0 232.0,49.1" fill="none" stroke="var(--accent)" stroke-width="2" vectordata="1"/></svg><div class="spark-stats"><span>最新 4.9</span><span>区间 4.2–9.1</span><span>均值 7.0</span><span>基线 7.5 h</span></div></div><div class="spark-card"><div class="hd"><span class="nm">准备度</span><span class="cu">91</span></div><svg viewBox="0 0 240 64" class="spark" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polyline points="8.0,15.1 15.7,38.7 23.4,41.0 31.2,39.5 38.9,8.0 46.6,8.0 54.3,10.4 62.1,32.4 69.8,24.5 77.5,27.7 85.2,13.5 93.0,14.3 100.7,14.3 108.4,30.8 116.1,35.5 123.9,37.1 131.6,56.0 139.3,52.1 147.0,32.4 154.8,47.3 162.5,52.1 170.2,27.7 177.9,12.7 185.7,12.7 193.4,12.7 201.1,12.7 208.8,12.7 216.6,26.1 224.3,28.5 232.0,27.7" fill="none" stroke="var(--accent)" stroke-width="2" vectordata="1"/></svg><div class="spark-stats"><span>最新 75</span><span>区间 39–100</span><span>均值 76</span><span>无基线</span></div></div></div><p class="weight-note">虚线为基线。HRV 与准备度近期波动大，RHR 平稳低位——整体呈「心率系统稳、恢复分受睡眠与 HRV 抖动牵动」的格局。</p><div class="foot"><span>28 天微观趋势</span><span>Slide 08 / 10</span></div></div></section><section class="slide" data-layout="light"><div class="slide-inner"><div class="chrome"><span class="brand">Recovery Deck</span><span class="cdate" id="cdate">—</span></div><span class="section-tag">状态模式</span><h1 class="title">多维校验：1 / 5 命中</h1><div class="pattern-grid"><div class="pattern on"><div class="pid">理想恢复</div><div class="pcond">HRV↑↑ RHR↓→ 睡眠优</div><span class="ptag">命中</span></div><div class="pattern"><div class="pid">交感疲劳</div><div class="pcond">HRV↓↓ RHR↑↑ 睡眠差</div><span class="ptag">未命中</span></div><div class="pattern"><div class="pid">副交感反弹</div><div class="pcond">HRV↑↑↑ RHR↓↓ 睡眠中</div><span class="ptag">未命中</span></div><div class="pattern"><div class="pid">睡眠债务疲劳</div><div class="pcond">HRV↓ RHR→ 睡眠差·短</div><span class="ptag">未命中</span></div><div class="pattern"><div class="pid">高负荷适应</div><div class="pcond">HRV↓ RHR↑ 睡眠中</div><span class="ptag">未命中</span></div></div><p class="weight-note">模式是「HRV↑↓ + RHR↑↓ + 睡眠」组合后的语义判定，比单一分数更能说明恢复性质。今日唯一命中：<b>理想恢复</b>（HRV↑↑ RHR↓→ 睡眠优）。</p><div class="foot"><span>多维度交叉验证</span><span>Slide 09 / 10</span></div></div></section><section class="slide" data-layout="split"><div class="slide-inner"><div class="split-l"><span class="section-tag">今日行动建议</span><h2 class="title">按 Grade A（状态极佳）给出</h2><div class="advice-list"><div class="advice"><span class="an">维持 HRV</span><span class="at">HRV 处于 绿·高，保持当前作息与训练节奏即可。</span></div><div class="advice"><span class="an">训练量</span><span class="at">静息心率 43 bpm 优于 28 日基线 46bpm，心肺恢复良好，可维持当前训练量，无需主动降载。</span></div><div class="advice"><span class="an">提升深睡</span><span class="at">深睡占比 17.9% 低于基线 21.1%，睡前 1 小时减少蓝光与酒精、保持卧室凉爽，以提升深睡时长。</span></div></div><div class="foot"><span>基于 kpi_today.json</span><span>Slide 10 / 10</span></div></div><div class="split-r"><div class="lbl">Recovery Score</div><div class="big">89</div><div class="lbl" style="margin-top:14px">2026-07-16 · GRADE A</div><div class="lbl" style="margin-top:8px;opacity:.7">权重是参考 · 数据说了算</div></div></div></section>
+</div>
+<div class="arrows">
+  <button onclick="go(cur-1)">‹</button>
+  <button onclick="go(cur+1)">›</button>
+</div>
+<div class="nav" id="nav"><span class="dot on" data-i="0" onclick="go(0)"></span><span class="dot" data-i="1" onclick="go(1)"></span><span class="dot" data-i="2" onclick="go(2)"></span><span class="dot" data-i="3" onclick="go(3)"></span><span class="dot" data-i="4" onclick="go(4)"></span><span class="dot" data-i="5" onclick="go(5)"></span><span class="dot" data-i="6" onclick="go(6)"></span><span class="dot" data-i="7" onclick="go(7)"></span><span class="dot" data-i="8" onclick="go(8)"></span><span class="dot" data-i="9" onclick="go(9)"></span></div>
+<script>
+var cur=0,total=10;
+var secs=document.querySelectorAll('.slide');
+function show(i){i=Math.max(0,Math.min(total-1,i));cur=i;
+ secs.forEach(function(s,k){s.classList.toggle('active',k===i);});
+ document.querySelectorAll('.dot').forEach(function(d,k){d.classList.toggle('on',k===i);});
+ var cd=document.getElementById('cdate');if(cd)cd.textContent='2026-07-16';
+}
+function go(i){show(i);}
+function setRange(r){['28','14','7'].forEach(function(x){document.getElementById('t'+x).style.display=(x==String(r))?'block':'none';});
+ document.querySelectorAll('.toggle button').forEach(function(b){b.classList.toggle('on',b.dataset.r==String(r));});}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'||e.key==='PageDown')go(cur+1);
+ else if(e.key==='ArrowLeft'||e.key==='PageUp')go(cur-1);});
+var wt=null;document.addEventListener('wheel',function(e){if(wt)return;wt=setTimeout(function(){wt=null;},700);
+ if(e.deltaY>0)go(cur+1);else if(e.deltaY<0)go(cur-1);},{passive:true});
+var tx=0;document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-tx;
+ if(dx<-40)go(cur+1);else if(dx>40)go(cur-1);},{passive:true});
+show(0);
+if(window.lucide)lucide.createIcons();
+</script>
+</body>
+</html>

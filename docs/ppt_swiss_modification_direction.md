@@ -1,4 +1,4 @@
-# ppt_swiss 修改方向（对照 deep_diagnosis_latest.html 标准版）
+# ppt_swiss 修改方向（对照 recovery_standard.html 标准版）
 
 > 目标：把 `output/ppt_swiss/index.html` 从「英文标签 + 轻量展示」升级为「全中文 + 对齐标准版数据与深度分析」的每日标准 deck，并修正叙事逻辑——**权重是参考，每天的数据才是主角**。
 
@@ -7,7 +7,7 @@
 ## 一、三条基本原则
 
 1. **全中文内容**：标题、说明、分析结论一律中文；技术缩写 `HRV / RHR / REM / Garmin` 保留（标准版也保留，属于通用术语）。
-2. **数据与分析对齐标准版**：`deep_diagnosis_latest.html` 里出现的每一项数据字段与文字分析，`ppt_swiss` 都要覆盖。
+2. **数据与分析对齐标准版**：`recovery_standard.html` 里出现的每一项数据字段与文字分析，`ppt_swiss` 都要覆盖。
 3. **叙事逻辑重构**：权重是「固定配方 / 参考」，真正决定今天恢复分的是你昨晚的真实数据。弱化权重的视觉权重，强化「今日值 → 你的基线 → 结论」这条主线。
 
 ---
@@ -64,7 +64,7 @@
 
 ## 五、关键技术要点
 
-- **数据源无需改动**：`composite / dimension_scores / baselines / derived_metrics_summary / trend / history.*_cal_28d / multi_dimension_validation` 全部已在 `kpi_today.json` 可用，生成器 `scripts/variants/recovery-deck/build.py` 继续只读这个文件。
+- **数据源无需改动**：`composite / dimension_scores / baselines / derived_metrics_summary / trend / history.*_cal_28d / multi_dimension_validation` 全部已在 `kpi_today.json` 可用，生成器 `scripts/variants/recovery_deck/build.py` 继续只读这个文件。
 - **折线图实现**：标准版用 canvas + 交互标签页；`ppt_swiss` 是静态横向 deck。建议改用**预渲染纯 SVG 折线**（28 天，含警戒线 60 / 目标 7h 参考线），放弃 7/14/28 切换，改为固定 28 天 + 覆盖率徽标。如需交互，再引入 JS canvas（增加复杂度）。
 - **⚠️ 数据质量 bug 1（直接影响叙事）**：`dimension_scores.hrv.score = 0`（zone SEVERE），但 HRV 73ms > 7 天基线 70ms、变化率 +0.99%，本应得 ~75 分。这是 `rebuild_kpi_today.py` 的 `score_hrv` 锚点/插值 bug，导致 HRV 贡献 0.0、综合恢复分被从约 88 硬压到 66。若坚持「每天数据重要」的叙事，这个 0 分恰恰会误导读者。→ **建议先修数据引擎**，或在 deck 内改用「原始 HRV 值 + 变化率」叙事、不直接用 score=0。
 - **⚠️ 数据质量 bug 2**：`derived.sleep_rem_pct = 0`（错），实际 `sleep.rem_seconds 7800 / 27900 ≈ 28%`。deck 内用原始 `rem_seconds` 计算，不用这个派生字段。
@@ -79,4 +79,4 @@
 3. **HRV score=0 bug**：先修 `rebuild_kpi_today.py` 再出 deck，还是 deck 内绕过（用原始值叙事）？
 4. **顺带处理**：`ppt/index.html`（硬编码、不遵从标准）与 `ppt/test.html`（测试页）是否一并处理？
 
-确认后我按此方向重写 `scripts/variants/recovery-deck/build.py` 模板并重新生成 `output/html/recovery_deck_swiss.html`。
+确认后我按此方向重写 `scripts/variants/recovery_deck/build.py` 模板并重新生成 `output/html/recovery_swiss.html`。
