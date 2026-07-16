@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- 标准版 STANDARD: 数据/逻辑以本文件为准。风格变体(html style)只改 CSS/布局，复用同一份 output/kpi_today.json；加载失败统一进入固定失败展示(showFailure)，不内嵌占位数据。 -->
+<!-- 标准版 STANDARD: 数据/逻辑以本文件为准。风格变体(html style)只改 CSS/布局，复用同一份 output/kpi_today.json。
+     加载策略双模式：
+       · file:// (Hermes/离线/无服务) → 以内嵌 STATIC_DATA 静态快照为本源数据直接渲染；
+       · http(s):// (实时) → fetch kpi_today.json，失败一律进入固定失败展示(showFailure)，绝不回退内嵌旧数据。
+     加载失败（任何模式）统一进入固定失败展示，文案固定，仅「失败原因」按实情输出。 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -58,6 +62,7 @@
   .header-title { font-size: 18px; font-weight: 700; color: var(--primary); }
   .header-date { font-size: 13px; color: var(--text-dim); font-family: monospace; }
   .header-source { font-size: 11px; color: var(--text-dark); margin-top: 2px; }
+  .header-source.static { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 1px 6px; border-radius: 6px; display: inline-block; }
 
   /* Section Card */
   .section {
@@ -968,7 +973,7 @@ function drawLineChart(canvasId, datasets, opts = {}) {
 }
 
 // ─── Render ───
-function render(data) {
+function render(data, mode) {
   const root = document.documentElement;
   const ds = data.dimension_scores || {};
   const derived = data.derived_metrics_summary || {};
@@ -982,7 +987,14 @@ function render(data) {
 
   // Header
   document.getElementById('dateDisplay').textContent = data.date || '--';
-  document.getElementById('sourceDisplay').textContent = `数据源: ${data.data_source || '--'} | 版本: ${data.engine_version || data.script_version || '1.0'}`;
+  const srcEl = document.getElementById('sourceDisplay');
+  if (mode === 'static') {
+    srcEl.textContent = `静态快照（file:// 主源）· 数据日期 ${data.date || '--'}`;
+    srcEl.classList.add('static');
+  } else {
+    srcEl.textContent = `数据源: ${data.data_source || '--'} | 版本: ${data.engine_version || data.script_version || '1.0'}`;
+    srcEl.classList.remove('static');
+  }
 
   // Theme
   root.style.setProperty('--accent', gc.color);
@@ -1605,6 +1617,1450 @@ function initTabs() {
   });
 }
 
+// ── 静态快照 STATIC_DATA ──
+// 仅供 file:// 模式（Hermes / 离线 / 无服务环境）作为本源数据使用，
+// 不是 HTTP 模式 fetch 失败后的回退：HTTP 模式失败一律走 showFailure。
+// 重新生成数据后需同步重嵌此快照（见 docs/KPI_DATA_CONTRACT.md「静态快照」节）。
+const STATIC_DATA = {
+  "date": "2026-07-16",
+  "generated_at": "2026-07-16 00:00:00",
+  "engine_version": "2.0",
+  "design_doc": "docs/design-morning-advisor.md",
+  "references_count": 24,
+  "data_source": "local_db ()",
+  "latest_db_date": "2026-07-16",
+  "raw_inputs": {
+    "hrv": {
+      "last_night": 73,
+      "weekly_avg": 68,
+      "status": "BALANCED"
+    },
+    "rhr": {
+      "current_bpm": 43
+    },
+    "sleep": {
+      "total_seconds": 27900,
+      "deep_seconds": 4980,
+      "rem_seconds": 7800,
+      "awake_count": 0,
+      "garmin_sleep_score": 97
+    },
+    "readiness": {
+      "score": 91,
+      "level": "HIGH"
+    },
+    "profile": {
+      "vo2max": "",
+      "bmi": null,
+      "device": "Forerunner 955 Solar",
+      "fitness_age": "",
+      "chronological_age": "",
+      "training_status_phrase": "RECOVERY",
+      "acwr_percent": 0,
+      "total_steps": null,
+      "total_distance_m": null,
+      "active_calories": null,
+      "avg_stress": 14,
+      "max_stress": 84,
+      "min_hr": null,
+      "max_hr": null,
+      "body_battery_charged": null,
+      "body_battery_drained": null,
+      "avg_spo2": null
+    },
+    "race_predictions": {},
+    "stress_raw": {
+      "avg_stress_level": 14,
+      "max_stress_level": 84
+    }
+  },
+  "history": {
+    "hrv_14d": [
+      {
+        "date": "2026-07-16",
+        "value": 73
+      },
+      {
+        "date": "2026-07-14",
+        "value": 52
+      },
+      {
+        "date": "2026-07-13",
+        "value": 75
+      },
+      {
+        "date": "2026-07-12",
+        "value": 66
+      },
+      {
+        "date": "2026-07-11",
+        "value": 80
+      },
+      {
+        "date": "2026-07-10",
+        "value": 67
+      },
+      {
+        "date": "2026-07-08",
+        "value": 61
+      },
+      {
+        "date": "2026-07-06",
+        "value": 59
+      },
+      {
+        "date": "2026-07-05",
+        "value": 76
+      },
+      {
+        "date": "2026-07-04",
+        "value": 81
+      },
+      {
+        "date": "2026-07-03",
+        "value": 69
+      },
+      {
+        "date": "2026-07-02",
+        "value": 89
+      },
+      {
+        "date": "2026-07-01",
+        "value": 67
+      },
+      {
+        "date": "2026-06-29",
+        "value": 64
+      }
+    ],
+    "rhr_28d": [
+      {
+        "date": "2026-07-16",
+        "value": 43
+      },
+      {
+        "date": "2026-07-14",
+        "value": 47
+      },
+      {
+        "date": "2026-07-13",
+        "value": 43
+      },
+      {
+        "date": "2026-07-12",
+        "value": 42
+      },
+      {
+        "date": "2026-07-11",
+        "value": 43
+      },
+      {
+        "date": "2026-07-10",
+        "value": 43
+      },
+      {
+        "date": "2026-07-09",
+        "value": 46
+      },
+      {
+        "date": "2026-07-08",
+        "value": 44
+      },
+      {
+        "date": "2026-07-07",
+        "value": 45
+      },
+      {
+        "date": "2026-07-06",
+        "value": 42
+      },
+      {
+        "date": "2026-07-05",
+        "value": 40
+      },
+      {
+        "date": "2026-07-04",
+        "value": 39
+      },
+      {
+        "date": "2026-07-03",
+        "value": 42
+      },
+      {
+        "date": "2026-07-02",
+        "value": 41
+      },
+      {
+        "date": "2026-07-01",
+        "value": 43
+      },
+      {
+        "date": "2026-06-30",
+        "value": 74
+      },
+      {
+        "date": "2026-06-29",
+        "value": 42
+      },
+      {
+        "date": "2026-06-28",
+        "value": 71
+      },
+      {
+        "date": "2026-06-27",
+        "value": 72
+      },
+      {
+        "date": "2026-06-26",
+        "value": 46
+      },
+      {
+        "date": "2026-06-25",
+        "value": 47
+      },
+      {
+        "date": "2026-06-18",
+        "value": 45
+      },
+      {
+        "date": "2026-06-17",
+        "value": 45
+      },
+      {
+        "date": "2026-06-16",
+        "value": 42
+      },
+      {
+        "date": "2026-06-15",
+        "value": 44
+      },
+      {
+        "date": "2026-06-14",
+        "value": 41
+      },
+      {
+        "date": "2026-06-12",
+        "value": 43
+      },
+      {
+        "date": "2026-06-11",
+        "value": 46
+      }
+    ],
+    "sleep_28d": [
+      {
+        "date": "2026-07-16",
+        "total_sec": 27900,
+        "deep_sec": 4980
+      },
+      {
+        "date": "2026-07-14",
+        "total_sec": 20134,
+        "deep_sec": 6480
+      },
+      {
+        "date": "2026-07-13",
+        "total_sec": 21900,
+        "deep_sec": 6240
+      },
+      {
+        "date": "2026-07-12",
+        "total_sec": 27720,
+        "deep_sec": 4860
+      },
+      {
+        "date": "2026-07-11",
+        "total_sec": 27151,
+        "deep_sec": 4440
+      },
+      {
+        "date": "2026-07-10",
+        "total_sec": 32580,
+        "deep_sec": 4740
+      },
+      {
+        "date": "2026-07-08",
+        "total_sec": 30780,
+        "deep_sec": 6300
+      },
+      {
+        "date": "2026-07-06",
+        "total_sec": 31248,
+        "deep_sec": 6480
+      },
+      {
+        "date": "2026-07-05",
+        "total_sec": 25980,
+        "deep_sec": 7380
+      },
+      {
+        "date": "2026-07-04",
+        "total_sec": 32880,
+        "deep_sec": 9420
+      },
+      {
+        "date": "2026-07-03",
+        "total_sec": 25860,
+        "deep_sec": 8820
+      },
+      {
+        "date": "2026-07-02",
+        "total_sec": 19200,
+        "deep_sec": 5220
+      },
+      {
+        "date": "2026-07-01",
+        "total_sec": 22380,
+        "deep_sec": 4020
+      },
+      {
+        "date": "2026-06-29",
+        "total_sec": 15300,
+        "deep_sec": 6540
+      },
+      {
+        "date": "2026-06-26",
+        "total_sec": 17580,
+        "deep_sec": 7980
+      }
+    ],
+    "readiness_28d": [
+      {
+        "date": "2026-07-16",
+        "score": 91,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-15",
+        "score": 61,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-14",
+        "score": 58,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-13",
+        "score": 60,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-12",
+        "score": 100,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-11",
+        "score": 100,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-10",
+        "score": 97,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-09",
+        "score": 69,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-08",
+        "score": 79,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-07",
+        "score": 75,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-06",
+        "score": 93,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-05",
+        "score": 92,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-04",
+        "score": 92,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-03",
+        "score": 71,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-02",
+        "score": 65,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-01",
+        "score": 63,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-30",
+        "score": 39,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-29",
+        "score": 44,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-28",
+        "score": 69,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-27",
+        "score": 50,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-26",
+        "score": 44,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-25",
+        "score": 75,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-24",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-23",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-22",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-21",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-20",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-19",
+        "score": 77,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-18",
+        "score": 74,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-17",
+        "score": 75,
+        "level": "HIGH"
+      }
+    ],
+    "hrv_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": 59
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": 64
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": 67
+      },
+      {
+        "date": "2026-07-02",
+        "value": 89
+      },
+      {
+        "date": "2026-07-03",
+        "value": 69
+      },
+      {
+        "date": "2026-07-04",
+        "value": 81
+      },
+      {
+        "date": "2026-07-05",
+        "value": 76
+      },
+      {
+        "date": "2026-07-06",
+        "value": 59
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": 61
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": 67
+      },
+      {
+        "date": "2026-07-11",
+        "value": 80
+      },
+      {
+        "date": "2026-07-12",
+        "value": 66
+      },
+      {
+        "date": "2026-07-13",
+        "value": 75
+      },
+      {
+        "date": "2026-07-14",
+        "value": 52
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 73
+      }
+    ],
+    "rhr_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": 47
+      },
+      {
+        "date": "2026-06-26",
+        "value": 46
+      },
+      {
+        "date": "2026-06-27",
+        "value": 72
+      },
+      {
+        "date": "2026-06-28",
+        "value": 71
+      },
+      {
+        "date": "2026-06-29",
+        "value": 42
+      },
+      {
+        "date": "2026-06-30",
+        "value": 74
+      },
+      {
+        "date": "2026-07-01",
+        "value": 43
+      },
+      {
+        "date": "2026-07-02",
+        "value": 41
+      },
+      {
+        "date": "2026-07-03",
+        "value": 42
+      },
+      {
+        "date": "2026-07-04",
+        "value": 39
+      },
+      {
+        "date": "2026-07-05",
+        "value": 40
+      },
+      {
+        "date": "2026-07-06",
+        "value": 42
+      },
+      {
+        "date": "2026-07-07",
+        "value": 45
+      },
+      {
+        "date": "2026-07-08",
+        "value": 44
+      },
+      {
+        "date": "2026-07-09",
+        "value": 46
+      },
+      {
+        "date": "2026-07-10",
+        "value": 43
+      },
+      {
+        "date": "2026-07-11",
+        "value": 43
+      },
+      {
+        "date": "2026-07-12",
+        "value": 42
+      },
+      {
+        "date": "2026-07-13",
+        "value": 43
+      },
+      {
+        "date": "2026-07-14",
+        "value": 47
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 43
+      }
+    ],
+    "sleep_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": {
+          "total_sec": 17580,
+          "deep_sec": 7980,
+          "garmin_score": 65
+        }
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": {
+          "total_sec": 15300,
+          "deep_sec": 6540,
+          "garmin_score": 58
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": {
+          "total_sec": 22380,
+          "deep_sec": 4020,
+          "garmin_score": 78
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "value": {
+          "total_sec": 19200,
+          "deep_sec": 5220,
+          "garmin_score": 69
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "value": {
+          "total_sec": 25860,
+          "deep_sec": 8820,
+          "garmin_score": 81
+        }
+      },
+      {
+        "date": "2026-07-04",
+        "value": {
+          "total_sec": 32880,
+          "deep_sec": 9420,
+          "garmin_score": 95
+        }
+      },
+      {
+        "date": "2026-07-05",
+        "value": {
+          "total_sec": 25980,
+          "deep_sec": 7380,
+          "garmin_score": 87
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "value": {
+          "total_sec": 31248,
+          "deep_sec": 6480,
+          "garmin_score": 92
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": {
+          "total_sec": 30780,
+          "deep_sec": 6300,
+          "garmin_score": 83
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": {
+          "total_sec": 32580,
+          "deep_sec": 4740,
+          "garmin_score": 88
+        }
+      },
+      {
+        "date": "2026-07-11",
+        "value": {
+          "total_sec": 27151,
+          "deep_sec": 4440,
+          "garmin_score": 89
+        }
+      },
+      {
+        "date": "2026-07-12",
+        "value": {
+          "total_sec": 27720,
+          "deep_sec": 4860,
+          "garmin_score": 87
+        }
+      },
+      {
+        "date": "2026-07-13",
+        "value": {
+          "total_sec": 21900,
+          "deep_sec": 6240,
+          "garmin_score": 80
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "value": {
+          "total_sec": 20134,
+          "deep_sec": 6480,
+          "garmin_score": 72
+        }
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": {
+          "total_sec": 27900,
+          "deep_sec": 4980,
+          "garmin_score": 97
+        }
+      }
+    ],
+    "readiness_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": {
+          "score": 77,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-20",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-21",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-22",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-23",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-24",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "value": {
+          "score": 75,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-26",
+        "value": {
+          "score": 44,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-06-27",
+        "value": {
+          "score": 50,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-06-28",
+        "value": {
+          "score": 69,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-06-29",
+        "value": {
+          "score": 44,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "value": {
+          "score": 39,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "value": {
+          "score": 63,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "value": {
+          "score": 65,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "value": {
+          "score": 71,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-04",
+        "value": {
+          "score": 92,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-05",
+        "value": {
+          "score": 92,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "value": {
+          "score": 93,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "value": {
+          "score": 75,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-08",
+        "value": {
+          "score": 79,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "value": {
+          "score": 69,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-10",
+        "value": {
+          "score": 97,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-11",
+        "value": {
+          "score": 100,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-12",
+        "value": {
+          "score": 100,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-13",
+        "value": {
+          "score": 60,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "value": {
+          "score": 58,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-15",
+        "value": {
+          "score": 61,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-16",
+        "value": {
+          "score": 91,
+          "level": "HIGH"
+        }
+      }
+    ],
+    "recovery_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": 47
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": 49
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": 57
+      },
+      {
+        "date": "2026-07-02",
+        "value": 55
+      },
+      {
+        "date": "2026-07-03",
+        "value": 59
+      },
+      {
+        "date": "2026-07-04",
+        "value": 66
+      },
+      {
+        "date": "2026-07-05",
+        "value": 64
+      },
+      {
+        "date": "2026-07-06",
+        "value": 65
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": 59
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": 64
+      },
+      {
+        "date": "2026-07-11",
+        "value": 65
+      },
+      {
+        "date": "2026-07-12",
+        "value": 65
+      },
+      {
+        "date": "2026-07-13",
+        "value": 57
+      },
+      {
+        "date": "2026-07-14",
+        "value": 49
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 66
+      }
+    ]
+  },
+  "baselines": {
+    "hrv_baseline_7d": 70,
+    "rhr_baseline_28d": 46,
+    "sleep_baseline_7d": {
+      "total_seconds": 26881,
+      "total_hours": 7.47,
+      "deep_pct_avg": 21.1
+    },
+    "formulas": {
+      "hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014 [R7]",
+      "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]",
+      "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004 [R16]"
+    }
+  },
+  "dimension_scores": {
+    "hrv": {
+      "last_night_ms": 73,
+      "weekly_avg_ms": 70,
+      "fallback_used": false,
+      "ln_last_night": 4.2905,
+      "ln_baseline": 4.2485,
+      "pct_change": 0.009877,
+      "pct_change_pct": 0.99,
+      "anchors": [
+        {
+          "pct_change": 0.1,
+          "score": 70,
+          "label": "spike"
+        },
+        {
+          "pct_change": 0.05,
+          "score": 85,
+          "label": "green_high"
+        },
+        {
+          "pct_change": 0.0,
+          "score": 75,
+          "label": "green_normal_mid"
+        },
+        {
+          "pct_change": -0.05,
+          "score": 60,
+          "label": "green_low_yellow_high"
+        },
+        {
+          "pct_change": -0.08,
+          "score": 40,
+          "label": "yellow_low_red_high"
+        },
+        {
+          "pct_change": -0.15,
+          "score": 10,
+          "label": "red_deep"
+        },
+        {
+          "pct_change": -0.2,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 0,
+      "zone": "SEVERE"
+    },
+    "rhr": {
+      "current_bpm": 43,
+      "baseline_bpm": 46,
+      "deviation": -3,
+      "deviation_bpm": "-3 bpm",
+      "anchors": [
+        {
+          "deviation_bpm": -3,
+          "score": 95,
+          "label": "very_low"
+        },
+        {
+          "deviation_bpm": 0,
+          "score": 75,
+          "label": "baseline"
+        },
+        {
+          "deviation_bpm": 3,
+          "score": 55,
+          "label": "mild_fatigue"
+        },
+        {
+          "deviation_bpm": 6,
+          "score": 30,
+          "label": "fatigue"
+        },
+        {
+          "deviation_bpm": 10,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 95,
+      "zone": "very_low"
+    },
+    "sleep": {
+      "total_seconds": 27900,
+      "deep_seconds": 4980,
+      "rem_seconds": 7800,
+      "awake_count": 0,
+      "garmin_score_used": true,
+      "score": 97,
+      "sub_scores": {}
+    },
+    "readiness": {
+      "original_score": 91,
+      "score": 91,
+      "zone": "GREEN"
+    },
+    "stress": {
+      "stress_level": 14,
+      "anchors": [
+        {
+          "stress_level": 0,
+          "score": 95,
+          "label": "very_low"
+        },
+        {
+          "stress_level": 25,
+          "score": 85,
+          "label": "low"
+        },
+        {
+          "stress_level": 50,
+          "score": 60,
+          "label": "moderate"
+        },
+        {
+          "stress_level": 75,
+          "score": 25,
+          "label": "high"
+        },
+        {
+          "stress_level": 100,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 89,
+      "zone": "low"
+    }
+  },
+  "composite": {
+    "recovery_score": 66,
+    "weights": {
+      "hrv": 0.3,
+      "sleep": 0.25,
+      "rhr": 0.2,
+      "readiness": 0.15,
+      "stress": 0.1
+    },
+    "grade": "C",
+    "label": "需要注意",
+    "zone": "CAUTION",
+    "calculation_steps": [
+      "HRV: 0 x 0.30 = 0.00",
+      "Sleep: 97 x 0.25 = 24.25",
+      "RHR: 95 x 0.20 = 19.00",
+      "Readiness: 91 x 0.15 = 13.65",
+      "Stress: 89 x 0.10 = 8.90",
+      "Total: 65.80 -> 66"
+    ],
+    "formula": "recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10",
+    "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003, [R21] Garmin"
+  },
+  "multi_dimension_validation": {
+    "num_patterns_checked": 5,
+    "patterns_checked": [
+      {
+        "id": "IDEAL_RECOVERY",
+        "label": "理想恢复",
+        "condition_desc": "HRV↑↑ RHR↓→ 睡眠优",
+        "ref": "[R2] Buchheit 2014",
+        "match": true
+      },
+      {
+        "id": "SYMPATHETIC_FATIGUE",
+        "label": "交感疲劳",
+        "condition_desc": "HRV↓↓ RHR↑↑ 睡眠差",
+        "ref": "[R10] Plews 2013",
+        "match": false
+      },
+      {
+        "id": "PARASYMPATHETIC_REBOUND",
+        "label": "副交感反弹",
+        "condition_desc": "HRV↑↑↑ RHR↓↓ 睡眠中",
+        "ref": "[R9] Recovery Tower Spike",
+        "match": false
+      },
+      {
+        "id": "SLEEP_DEBT",
+        "label": "睡眠债务疲劳",
+        "condition_desc": "HRV↓ RHR→ 睡眠差·短",
+        "ref": "[R16] Ohayon 2004",
+        "match": false
+      },
+      {
+        "id": "HIGH_LOAD_ADAPTATION",
+        "label": "高负荷适应",
+        "condition_desc": "HRV↓ RHR↑ 睡眠中",
+        "ref": "[R22] Chalencon 2012",
+        "match": false
+      }
+    ],
+    "num_matched": 1,
+    "matched_patterns": [
+      {
+        "id": "IDEAL_RECOVERY",
+        "label": "理想恢复",
+        "condition_desc": "HRV↑↑ RHR↓→ 睡眠优",
+        "ref": "[R2] Buchheit 2014",
+        "match": true
+      }
+    ]
+  },
+  "trend": {
+    "low_streak": 2,
+    "window_checked": 28,
+    "threshold": 60,
+    "alert": null,
+    "recent_scores_in_window": [
+      77,
+      94,
+      94,
+      94,
+      94,
+      94,
+      75,
+      44,
+      50,
+      69,
+      44,
+      39,
+      63,
+      65,
+      71,
+      92,
+      92,
+      93,
+      75,
+      79,
+      69,
+      97,
+      100,
+      100,
+      60,
+      58,
+      61,
+      91
+    ]
+  },
+  "derived_metrics_summary": {
+    "hrv_pct_change": 0.99,
+    "hrv_ln_change": 0.009877,
+    "rhr_deviation_bpm": -3,
+    "sleep_total_hours": 7.75,
+    "sleep_deep_pct": 17.85,
+    "sleep_rem_pct": 0,
+    "stress_level": 14,
+    "stress_score": 89,
+    "stress_zone": "low",
+    "training_load": null,
+    "acwr_percent": 0,
+    "readiness_score_original": 91
+  }
+};
+
 function getDataUrl() {
   const params = new URLSearchParams(window.location.search);
   const date = params.get('date');
@@ -1612,9 +3068,12 @@ function getDataUrl() {
   return '../kpi_today.json';
 }
 
-// 标准版不内嵌任何数据：加载失败一律走固定失败展示（showFailure），不使用占位/过期数据。
+// 标准版加载策略（双模式）：
+//  · file:// 模式（Hermes / 离线 / 无服务）：以内嵌 STATIC_DATA 为本源数据直接渲染，
+//    不做任何 fetch，也不存在「fetch 失败回退」——内嵌数据即权威快照。
+//  · http(s):// 模式（实时）：fetch kpi_today.json，失败一律走 showFailure，绝不回退内嵌旧数据。
 
-function showFailure(reason) {
+function showFailure(reason, hint) {
   const loading = document.getElementById('loading');
   const app = document.getElementById('app');
   if (loading) loading.classList.add('hidden');
@@ -1624,8 +3083,8 @@ function showFailure(reason) {
     '<div class="fail-screen">' +
       '<div class="fail-icon">!</div>' +
       '<h1>数据加载失败</h1>' +
-      '<p class="fail-line">本页面需要读取 <code>kpi_today.json</code> 才能展示诊断数据，未加载到任何数据。</p>' +
-      '<p class="fail-line">请确认：① 数据文件已由 <code>rebuild_kpi_today.py</code> 生成；② 通过本地 HTTP 服务访问本页（直接双击 <code>file://</code> 打开会被浏览器拦截本地请求）。</p>' +
+      '<p class="fail-line">本页面需要有效的诊断数据才能展示，当前未加载到任何数据。</p>' +
+      (hint ? '<p class="fail-line">' + hint + '</p>' : '') +
       '<p class="fail-reason">失败原因：<span id="failReasonText"></span></p>' +
     '</div>';
   const rt = document.getElementById('failReasonText');
@@ -1642,6 +3101,25 @@ async function loadData() {
   if (app) app.classList.add('hidden');
 
   const fileProto = window.location.protocol === 'file:';
+
+  // ── 模式 A：file:// 静态快照（Hermes / 离线）──
+  if (fileProto) {
+    try {
+      const data = STATIC_DATA;
+      if (!data || typeof data !== 'object') throw new Error('内嵌静态数据缺失');
+      if (!data.history) throw new Error('内嵌静态数据缺少 history 字段');
+      const need = ['recovery_cal_28d', 'hrv_cal_28d', 'rhr_cal_28d', 'sleep_cal_28d', 'readiness_cal_28d'];
+      const miss = need.filter(k => !Array.isArray(data.history[k]));
+      if (miss.length) throw new Error('内嵌静态数据缺少序列：' + miss.join(', '));
+      render(data, 'static');
+    } catch (err) {
+      console.error('static load failed:', err);
+      showFailure(err.message, '内嵌静态快照异常：请重新运行数据生成与「内嵌快照」构建步骤后重试。');
+    }
+    return;
+  }
+
+  // ── 模式 B：http(s):// 实时数据 ──
   try {
     const resp = await fetch(getDataUrl(), { cache: 'no-store' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText || ''}`.trim());
@@ -1656,11 +3134,10 @@ async function loadData() {
     const need = ['recovery_cal_28d', 'hrv_cal_28d', 'rhr_cal_28d', 'sleep_cal_28d', 'readiness_cal_28d'];
     const miss = need.filter(k => !Array.isArray(data.history[k]));
     if (miss.length) throw new Error('history 缺少序列：' + miss.join(', '));
-    if (fileProto) throw new Error('当前以 file:// 协议打开，浏览器会拦截本地数据请求；请改用 HTTP 服务以正常渲染（数据本身已取到）');
-    render(data);
+    render(data, 'live');
   } catch (err) {
     console.error('loadData failed:', err);
-    showFailure(err.message);
+    showFailure(err.message, '实时数据获取失败。请确认：① rebuild_kpi_today.py 已生成 kpi_today.json；② 通过本地 HTTP 服务访问本页。');
   }
 }
 
