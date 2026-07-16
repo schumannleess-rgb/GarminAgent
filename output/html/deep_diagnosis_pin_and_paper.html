@@ -1,0 +1,3292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>深度诊断 · Pin & Paper</title>
+<style>
+  /* === Pin & Paper Style · deep_diagnosis v2.0 === */
+  /* Style: pin-and-paper */
+  :root {
+    --paper:    #EFE56A;
+    --paper-2:  #F5ECA0;
+    --cream:    #F8F1D6;
+    --kraft:    #C9A66B;
+    --ink:      #1F3A8A;
+    --ink-soft: #2D4FB8;
+    --ink-line: #3457C4;
+    --black:    #0E1430;
+    --red:      #C2342B;
+    --olive:    #6B7A2E;
+    --orange:   #D8702A;
+
+    --bg:              var(--paper);
+    --card:            var(--cream);
+    --card-border:     var(--ink);
+    --primary:         var(--ink);
+    --text:            var(--ink);
+    --text-dim:        var(--ink-soft);
+    --text-dark:       var(--ink-line);
+    --code-bg:         var(--paper-2);
+
+    --excellent:       #2d6a4f;
+    --good:            var(--ink);
+    --caution:         var(--orange);
+    --poor:            #c1121f;
+    --critical:        var(--red);
+
+    --dim-hrv:         var(--olive);
+    --dim-rhr:         #8b4513;
+    --dim-sleep:       #2d6a4f;
+    --dim-readiness:   var(--orange);
+    --dim-stress:      #7c6a2f;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--text);
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Paper grain texture */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .35;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.2  0 0 0 .25 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--ink-line);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+
+  /* Header - top chrome */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 4px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .header-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .header-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+  .header-source {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-line);
+    margin-top: 2px;
+    text-align: right;
+  }
+  .header-source.static {
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    padding: 1px 6px;
+    display: inline-block;
+  }
+
+  /* ── 固定失败展示（加载数据失败时统一进入，不展示任何占位数据）── */
+  .fail-screen {
+    max-width: 640px;
+    margin: 8vh auto;
+    padding: 32px 36px;
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.06);
+    text-align: center;
+  }
+  .fail-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 32px; font-weight: 700;
+    line-height: 56px;
+  }
+  .fail-screen h1 { margin: 0 0 12px; font-size: 22px; color: #b91c1c; }
+  .fail-line { margin: 6px 0; color: #475569; font-size: 14px; line-height: 1.6; }
+  .fail-screen code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  .fail-reason {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: #0f172a;
+    font-size: 13px;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  /* Alert bar */
+  .alert-bar {
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .alert-bar.ok {
+    background: rgba(45,106,79,0.1);
+    border-color: var(--excellent);
+    color: var(--excellent);
+  }
+  .alert-bar.warn {
+    background: rgba(193,18,31,0.08);
+    border-color: var(--critical);
+    color: var(--critical);
+  }
+
+  /* Section cards - pinned note style */
+  .section {
+    background: var(--cream);
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    box-shadow: 5px 6px 0 0 var(--ink);
+  }
+
+  /* Push pin decoration */
+  .section::before {
+    content: "";
+    position: absolute;
+    top: -9px;
+    left: 20px;
+    width: 16px;
+    height: 16px;
+    background: var(--red);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    z-index: 2;
+  }
+  .section::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 27px;
+    width: 3px;
+    height: 14px;
+    background: var(--red);
+    z-index: 1;
+  }
+
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-num {
+    font-family: 'Caveat', cursive;
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--red);
+    line-height: 1;
+    min-width: 32px;
+  }
+
+  /* Hero score ring */
+  .hero-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .score-ring {
+    width: 110px; height: 110px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-ring-bg {
+    fill: none;
+    stroke: var(--ink-line);
+    stroke-width: 7;
+    opacity: 0.2;
+  }
+  .score-ring-fill {
+    fill: none;
+    stroke-width: 7;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .score-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(0deg);
+  }
+  .score-number {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .grade-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border: 3px solid var(--red);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--red);
+    transform: rotate(-3deg);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .score-label {
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* Contribution bar */
+  .contrib-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+    border: 1.5px solid var(--ink);
+  }
+  .contrib-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink);
+    transition: width 0.8s ease;
+  }
+  .contrib-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .contrib-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+  .contrib-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .contrib-label { color: var(--ink-soft); flex: 1; }
+  .contrib-val {
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Formula box */
+  .formula-box {
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 14px;
+    margin: 10px 0;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .formula-box .hl {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .formula-box .d-hrv { color: var(--dim-hrv); }
+  .formula-box .d-sleep { color: var(--dim-sleep); }
+  .formula-box .d-rhr { color: var(--dim-rhr); }
+  .formula-box .d-ready { color: var(--dim-readiness); }
+  .formula-box .d-stress { color: var(--dim-stress); }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .kpi-card {
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 14px;
+    box-shadow: 3px 4px 0 0 var(--ink);
+  }
+  .kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .kpi-icon { font-size: 16px; }
+  .kpi-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .kpi-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .kpi-unit {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 400;
+    margin-left: 2px;
+  }
+  .kpi-delta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .kpi-delta.up { color: var(--excellent); }
+  .kpi-delta.down { color: var(--critical); }
+  .kpi-delta.neutral { color: var(--ink-soft); }
+  .kpi-desc {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .kpi-bar {
+    height: 4px;
+    background: var(--ink-line);
+    opacity: 0.2;
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .kpi-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s ease;
+  }
+
+  /* Chart cards */
+  .chart-card {
+    background: var(--cream);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 5px 6px 0 0 var(--ink);
+  }
+  .chart-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chart-subtitle {
+    font-family: 'Caveat', cursive;
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 200px;
+  }
+  .chart-wrap canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--cream);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+    white-space: nowrap;
+    box-shadow: 2px 3px 0 0 var(--ink);
+  }
+  .chart-tooltip.show { opacity: 1; }
+
+  /* ── 7/14/28 天标签 + 覆盖率徽标（cal_28d 子系统）── */
+  .chart-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 3px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    background: var(--cream);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { background: var(--ink); color: var(--cream); }
+  .tab-btn.active {
+    background: var(--ink);
+    color: var(--cream);
+    font-weight: 700;
+  }
+  .coverage {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px solid var(--ink-line);
+    border-radius: 4px;
+    padding: 1px 7px;
+  }
+  .coverage.low {
+    color: #b91c1c;
+    border-color: #dc2626;
+    background: #fee2e2;
+  }
+  .chart-tooltip .tt-date {
+    font-family: 'DM Mono', monospace;
+    color: var(--ink-soft);
+    font-size: 11px;
+  }
+  .chart-tooltip .tt-val {
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Info rows */
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1.5px dashed var(--ink-line);
+    font-size: 13px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label {
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .info-value {
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .info-value.better { color: var(--excellent); }
+  .info-value.warn { color: var(--caution); }
+  .info-value.bad { color: var(--critical); }
+
+  /* Text analysis */
+  .analysis-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+  .analysis-text strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .analysis-text .good { color: var(--excellent); }
+  .analysis-text .warn { color: var(--caution); }
+  .analysis-text .bad { color: var(--critical); }
+
+  /* Pattern items */
+  .pattern-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    box-shadow: 2px 3px 0 0 var(--ink);
+  }
+  .pattern-item.matched {
+    background: rgba(45,106,79,0.08);
+    border-color: var(--excellent);
+    box-shadow: 2px 3px 0 0 var(--excellent);
+  }
+  .pattern-icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+  .pattern-content { flex: 1; }
+  .pattern-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .pattern-desc {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .pattern-meaning {
+    font-family: 'Caveat', cursive;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--ink-line);
+  }
+
+  /* Advice items */
+  .advice-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1.5px dashed var(--ink-line);
+  }
+  .advice-item:last-child { border-bottom: none; }
+  .advice-icon { font-size: 18px; flex-shrink: 0; }
+  .advice-content {
+    flex: 1;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .advice-content strong {
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* Sleep grid */
+  .sleep-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .sleep-stat {
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 12px;
+    text-align: center;
+    box-shadow: 2px 3px 0 0 var(--ink);
+  }
+  .sleep-stat-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .sleep-stat-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .sleep-stat-unit {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  /* Sleep note */
+  #sleepNote {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1.5px solid var(--ink);
+  }
+
+  /* Raw data toggle */
+  .raw-toggle {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-top: 3px solid var(--black);
+    padding: 12px 16px;
+    z-index: 100;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .raw-content {
+    display: none;
+    margin-bottom: 60px;
+  }
+  .raw-content.show { display: block; }
+  .raw-content pre {
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .hero-row { flex-direction: column; text-align: center; }
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>加载诊断数据...</p>
+  </div>
+
+  <div id="app" class="hidden">
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <div class="header-title">深度诊断</div>
+        <div class="header-date" id="dateDisplay">--</div>
+        <div class="header-source" id="sourceDisplay">--</div>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div class="alert-bar ok" id="alertBar">
+      <span id="alertIcon">&#x2705;</span>
+      <span id="alertText">趋势正常</span>
+    </div>
+
+    <!-- Section 0: Overview + Formula -->
+    <div class="section">
+      <div class="section-title"><div class="section-num">0</div>综合诊断</div>
+      <div class="hero-row">
+        <div class="score-ring">
+          <svg viewBox="0 0 100 100">
+            <circle class="score-ring-bg" cx="50" cy="50" r="42"/>
+            <circle class="score-ring-fill" id="heroRing" cx="50" cy="50" r="42"
+                    stroke="var(--caution)" stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+          </svg>
+          <div class="score-value">
+            <div class="score-number" id="scoreNum">--</div>
+          </div>
+        </div>
+        <div>
+          <div class="grade-badge" id="gradeBadge">--</div>
+          <div class="score-label" id="scoreLabel">综合恢复分</div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">五个维度如何构成你的恢复分：</div>
+      <div class="contrib-bar" id="contribBar"></div>
+      <div class="contrib-legend" id="contribLegend"></div>
+      <div class="formula-box" id="formulaBox"></div>
+    </div>
+
+    <!-- Section 1: KPI Cards -->
+    <div class="section">
+      <div class="section-title"><div class="section-num">1</div>核心指标概览</div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+    </div>
+
+    <!-- Section 2: Recovery Score Trend -->
+    <div class="chart-card">
+      <div class="chart-title">&#x1F4C8; 恢复分近期走势</div>
+      <div class="chart-subtitle" id="trendSubtitle">恢复分趋势（警戒线 60）</div>
+      <div class="chart-tabs" data-chart="recovery">
+        <button class="tab-btn" data-win="7">7天</button>
+        <button class="tab-btn" data-win="14">14天</button>
+        <button class="tab-btn active" data-win="28">28天</button>
+        <span class="coverage" id="recoveryCov"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="trendChart"></canvas>
+        <div class="chart-tooltip" id="trendTooltip"></div>
+      </div>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--primary);"></div>恢复分</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--critical);opacity:0.5;"></div>警戒线 60</div>
+      </div>
+    </div>
+
+    <!-- Section 3: HRV + RHR Dual Trend -->
+    <div class="chart-card">
+      <div class="chart-title">&#x1F4CA; HRV &amp; 静息心率趋势</div>
+      <div class="chart-subtitle">HRV 越高越好 / 静息心率 越低越好（按日历日，缺测断开）</div>
+      <div class="chart-tabs" data-chart="dual">
+        <button class="tab-btn" data-win="7">7天</button>
+        <button class="tab-btn" data-win="14">14天</button>
+        <button class="tab-btn active" data-win="28">28天</button>
+        <span class="coverage" id="dualCov"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="dualChart"></canvas>
+        <div class="chart-tooltip" id="dualTooltip"></div>
+      </div>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--dim-hrv);"></div>HRV (ms)</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--dim-rhr);"></div>静息心率 (bpm)</div>
+      </div>
+    </div>
+
+    <!-- Section 4: Sleep Trend -->
+    <div class="chart-card">
+      <div class="chart-title">&#x1F634; 睡眠时长趋势</div>
+      <div class="chart-subtitle">总睡眠时长（目标 7h，按日历日，缺测断开）</div>
+      <div class="chart-tabs" data-chart="sleep">
+        <button class="tab-btn" data-win="7">7天</button>
+        <button class="tab-btn" data-win="14">14天</button>
+        <button class="tab-btn active" data-win="28">28天</button>
+        <span class="coverage" id="sleepCov"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="sleepChart"></canvas>
+        <div class="chart-tooltip" id="sleepTooltip"></div>
+      </div>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--dim-sleep);"></div>睡眠时长 (h)</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--caution);opacity:0.5;"></div>目标 7h</div>
+      </div>
+    </div>
+
+    <!-- Section 5: Readiness Trend -->
+    <div class="chart-card">
+      <div class="chart-title">&#x1F3C5; 训练准备度趋势</div>
+      <div class="chart-subtitle">准备度评分（80+ 适合训练，按日历日，缺测断开）</div>
+      <div class="chart-tabs" data-chart="ready">
+        <button class="tab-btn" data-win="7">7天</button>
+        <button class="tab-btn" data-win="14">14天</button>
+        <button class="tab-btn active" data-win="28">28天</button>
+        <span class="coverage" id="readyCov"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="readyChart"></canvas>
+        <div class="chart-tooltip" id="readyTooltip"></div>
+      </div>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--dim-readiness);"></div>准备度</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--excellent);opacity:0.5;"></div>训练线 80</div>
+      </div>
+    </div>
+
+    <!-- Section 5: HRV Text Analysis -->
+    <div class="section">
+      <div class="section-title"><div class="section-num" style="background:var(--dim-hrv);">5</div>HRV 心率变异性</div>
+      <div class="formula-box" id="hrvFormula"></div>
+      <div class="analysis-text" id="hrvAnalysis"></div>
+      <div style="margin-top:12px;">
+        <div class="info-row">
+          <span class="info-label">&#x1F4C5; 昨晚 HRV</span>
+          <span class="info-value" id="hrvLast">-- ms</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F4C8; 7 天基线</span>
+          <span class="info-value" style="color:var(--text-dim);" id="hrvBase">-- ms</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F504; 变化率</span>
+          <span class="info-value" id="hrvChange">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F3AF; 得分</span>
+          <span class="info-value" id="hrvScore">-- / 100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: RHR Text Analysis -->
+    <div class="section">
+      <div class="section-title"><div class="section-num" style="background:var(--dim-rhr);">6</div>静息心率</div>
+      <div class="formula-box" id="rhrFormula"></div>
+      <div class="analysis-text" id="rhrAnalysis"></div>
+      <div style="margin-top:12px;">
+        <div class="info-row">
+          <span class="info-label">&#x2764;&#xFE0F; 当前心率</span>
+          <span class="info-value" id="rhrCurrent">-- bpm</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F4CA; 28 天基线</span>
+          <span class="info-value" style="color:var(--text-dim);" id="rhrBase">-- bpm</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F503; 偏差</span>
+          <span class="info-value" id="rhrDev">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F3AF; 得分</span>
+          <span class="info-value" id="rhrScore">-- / 100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 7: Sleep Analysis -->
+    <div class="section">
+      <div class="section-title"><div class="section-num" style="background:var(--dim-sleep);">7</div>睡眠质量</div>
+      <div id="sleepNote" style="font-size:12px;color:var(--excellent);margin-bottom:10px;padding:8px;background:rgba(34,197,94,0.1);border-radius:8px;">
+        &#x2705; 使用 Garmin 官方睡眠评分
+      </div>
+      <div class="sleep-grid">
+        <div class="sleep-stat">
+          <div class="sleep-stat-label">总睡眠</div>
+          <div style="font-size:22px;font-weight:700;" id="sleepTotal">--</div>
+          <div class="sleep-stat-unit">小时</div>
+        </div>
+        <div class="sleep-stat">
+          <div class="sleep-stat-label">深睡占比</div>
+          <div style="font-size:22px;font-weight:700;" id="deepPct">--%</div>
+          <div class="sleep-stat-unit">正常 10-25%</div>
+        </div>
+      </div>
+      <div class="analysis-text" id="sleepAnalysis"></div>
+      <div style="margin-top:12px;">
+        <div class="info-row">
+          <span class="info-label">&#x1F6EE;&#xFE0F; 深睡时长</span>
+          <span class="info-value" id="deepTime">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F4A4; REM 时长</span>
+          <span class="info-value" id="remTime">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F6CF; 清醒次数</span>
+          <span class="info-value" id="awakeCount">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">&#x1F3C6; Garmin 评分</span>
+          <span class="info-value" id="sleepScore" style="color:var(--dim-sleep);">-- /100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 8: Patterns -->
+    <div class="section">
+      <div class="section-title"><div class="section-num" style="background:var(--dim-readiness);">8</div>状态模式识别</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;">
+        系统根据 HRV、心率、睡眠的组合，判断你当前处于哪种身体状态。匹配的模式越多，说明数据越一致可信。
+      </div>
+      <div id="patternsList"></div>
+    </div>
+
+    <!-- Section 9: Advice -->
+    <div class="section">
+      <div class="section-title"><div class="section-num" style="background:var(--dim-stress);">9</div>今日建议</div>
+      <div id="adviceList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Color Helpers ───
+const GRADE_COLORS = {
+  'A': { color: '#2d6a4f', glow: 'rgba(45,106,79,0.15)', border: 'rgba(45,106,79,0.3)', label: '状态极佳' },
+  'B': { color: '#1F3A8A', glow: 'rgba(31,58,138,0.12)', border: 'rgba(31,58,138,0.25)', label: '状态良好' },
+  'C': { color: '#D8702A', glow: 'rgba(216,112,42,0.12)', border: 'rgba(216,112,42,0.25)', label: '需要注意' },
+  'D': { color: '#c1121f', glow: 'rgba(193,18,31,0.12)', border: 'rgba(193,18,31,0.25)', label: '恢复不足' },
+  'F': { color: '#C2342B', glow: 'rgba(194,52,43,0.15)', border: 'rgba(194,52,43,0.3)', label: '需要休息' },
+};
+
+const CIRCUMFERENCE = 2 * Math.PI * 42; // ~263.9
+
+function getGradeInfo(grade) {
+  return GRADE_COLORS[grade] || GRADE_COLORS['C'];
+}
+
+function getZoneColor(zone) {
+  const map = {
+    'GREEN_NORMAL': '#34d399', 'LOW': '#22d3ee', 'MODERATE': '#fbbf24',
+    'HIGH': '#f97316', 'RED': '#f87171', 'EXCELLENT': '#22c55e',
+    'GOOD': '#3b82f6', 'CAUTION': '#eab308', 'POOR': '#f97316',
+    'CRITICAL': '#ef4444', 'OPTIMAL': '#22c55e', 'very_low': '#22d3ee',
+    'baseline': '#94a3b8', 'mild_fatigue': '#fbbf24', 'fatigue': '#f97316',
+    'severe': '#ef4444', 'low': '#34d399', 'moderate': '#fbbf24',
+    'high': '#f97316', 'spike': '#a78bfa', 'green_high': '#22c55e',
+    'green_normal_mid': '#34d399', 'green_low_yellow_high': '#fbbf24',
+    'yellow_low_red_high': '#f97316', 'red_deep': '#ef4444'
+  };
+  return map[zone] || '#94a3b8';
+}
+
+function animateRing(el, score) {
+  const target = CIRCUMFERENCE - (CIRCUMFERENCE * Math.min(score, 100) / 100);
+  el.style.strokeDashoffset = CIRCUMFERENCE;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.style.strokeDashoffset = target;
+    });
+  });
+}
+
+// ─── Canvas Chart Helpers ───
+function setupCanvas(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { canvas, ctx, w: rect.width, h: rect.height };
+}
+
+function drawLineChart(canvasId, datasets, opts = {}) {
+  const setup = setupCanvas(canvasId);
+  if (!setup) return;
+  const { ctx, w, h } = setup;
+
+  // Tooltip
+  const tooltipId = canvasId.replace('Chart', 'Tooltip');
+  const tooltip = document.getElementById(tooltipId);
+
+  const pad = { top: 20, right: 16, bottom: 30, left: 40 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+  if (chartW <= 0 || chartH <= 0) return;
+
+  try {
+    // Find data range
+    let allVals = [];
+    datasets.forEach(ds => ds.data.forEach(v => { if (v.value != null) allVals.push(v.value); }));
+    if (!allVals.length) {
+      ctx.fillStyle = 'rgba(100,116,139,0.4)';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('暂无数据', w / 2, h / 2);
+      return;
+    }
+    let minVal = opts.minVal !== undefined ? opts.minVal : Math.min(...allVals);
+    let maxVal = opts.maxVal !== undefined ? opts.maxVal : Math.max(...allVals);
+    const range = maxVal - minVal || 1;
+    minVal -= range * 0.1;
+    maxVal += range * 0.1;
+    const valRange = maxVal - minVal;
+
+    // Threshold line
+    if (opts.threshold !== undefined) {
+      const threshY = pad.top + chartH - ((opts.threshold - minVal) / valRange) * chartH;
+      ctx.strokeStyle = 'rgba(194,52,43,0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, threshY);
+      ctx.lineTo(w - pad.right, threshY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(194,52,43,0.8)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${opts.thresholdLabel || opts.threshold}`, w - pad.right, threshY - 4);
+    }
+
+    const pointMap = [];
+
+    datasets.forEach((ds) => {
+      const data = ds.data.filter(d => d.value != null);
+      if (data.length < 2) return;
+      const stepX = chartW / (data.length - 1);
+
+      // Area fill
+      ctx.beginPath();
+      data.forEach((pt, i) => {
+        const x = pad.left + i * stepX;
+        const y = pad.top + chartH - ((pt.value - minVal) / valRange) * chartH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.lineTo(pad.left + (data.length - 1) * stepX, pad.top + chartH);
+      ctx.lineTo(pad.left, pad.top + chartH);
+      ctx.closePath();
+      ctx.fillStyle = ds.fillColor || 'rgba(56,189,248,0.08)';
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      data.forEach((pt, i) => {
+        const x = pad.left + i * stepX;
+        const y = pad.top + chartH - ((pt.value - minVal) / valRange) * chartH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = ds.color || '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Points
+      data.forEach((pt, i) => {
+        const x = pad.left + i * stepX;
+        const y = pad.top + chartH - ((pt.value - minVal) / valRange) * chartH;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = ds.color || '#38bdf8';
+        ctx.fill();
+        ctx.strokeStyle = '#F8F1D6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        pointMap.push({ x, y, value: pt.value, label: pt.label || pt.date, color: ds.color });
+      });
+
+      // Y-axis labels
+      ctx.fillStyle = 'rgba(31,58,138,0.5)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const val = minVal + (valRange * i) / 4;
+        const y = pad.top + chartH - (i / 4) * chartH;
+        ctx.fillText(Math.round(val), pad.left - 6, y + 3);
+      }
+    });
+
+    // X-axis labels
+    const firstDs = datasets[0]?.data || [];
+    if (firstDs.length) {
+      const stepX = chartW / (firstDs.length - 1 || 1);
+      ctx.fillStyle = 'rgba(31,58,138,0.5)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      const maxLabels = Math.floor(chartW / 50);
+      const skip = Math.max(1, Math.ceil(firstDs.length / maxLabels));
+      firstDs.forEach((pt, i) => {
+        if (i % skip === 0 || i === firstDs.length - 1) {
+          const x = pad.left + i * stepX;
+          const label = pt.shortLabel || pt.label || (pt.date ? pt.date.slice(5) : '');
+          ctx.fillText(label, x, h - pad.bottom + 14);
+        }
+      });
+    }
+
+    // Interactive hover
+    if (tooltip && pointMap.length) {
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        let closest = null, closestDist = Infinity;
+        pointMap.forEach(p => {
+          const d = Math.hypot(p.x - mx, p.y - my);
+          if (d < closestDist) { closestDist = d; closest = p; }
+        });
+        if (closest && closestDist < 30) {
+          const valStr = opts.valueFormat === 'pct' ? closest.value.toFixed(1) + '%' : Math.round(closest.value) + (opts.unit || '');
+          tooltip.innerHTML = `<div class="tt-date">${closest.label}</div><div class="tt-val" style="color:${closest.color};">${valStr}</div>`;
+          tooltip.classList.add('show');
+          tooltip.style.left = Math.min(closest.x + 10, w - 80) + 'px';
+          tooltip.style.top = Math.max(closest.y - 40, 4) + 'px';
+        } else {
+          tooltip.classList.remove('show');
+        }
+      };
+      canvas.onmouseleave = () => tooltip.classList.remove('show');
+      canvas.ontouchmove = (e) => {
+        e.preventDefault();
+        const t = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const mx = t.clientX - rect.left, my = t.clientY - rect.top;
+        let closest = null, closestDist = Infinity;
+        pointMap.forEach(p => {
+          const d = Math.hypot(p.x - mx, p.y - my);
+          if (d < closestDist) { closestDist = d; closest = p; }
+        });
+        if (closest && closestDist < 40) {
+          const valStr = opts.valueFormat === 'pct' ? closest.value.toFixed(1) + '%' : Math.round(closest.value) + (opts.unit || '');
+          tooltip.innerHTML = `<div class="tt-date">${closest.label}</div><div class="tt-val" style="color:${closest.color};">${valStr}</div>`;
+          tooltip.classList.add('show');
+          tooltip.style.left = Math.min(closest.x + 10, w - 80) + 'px';
+          tooltip.style.top = Math.max(closest.y - 40, 4) + 'px';
+        } else {
+          tooltip.classList.remove('show');
+        }
+      };
+      canvas.ontouchend = () => tooltip.classList.remove('show');
+    }
+  } catch (err) {
+    console.warn(`Chart ${canvasId} error:`, err);
+  }
+}
+
+// ─── Render ───
+function render(data, mode) {
+  const root = document.documentElement;
+  const ds = data.dimension_scores || {};
+  const derived = data.derived_metrics_summary || {};
+  const trend = data.trend || {};
+  const patterns = data.multi_dimension_validation?.patterns_checked || [];
+  const history = data.history || {};
+  const score = data.composite?.recovery_score ?? 0;
+  const grade = data.composite?.grade || 'C';
+  const gc = getGradeInfo(grade);
+  const weights = data.composite?.weights || { hrv: 0.3, sleep: 0.25, rhr: 0.2, readiness: 0.15, stress: 0.1 };
+
+  // Header
+  document.getElementById('dateDisplay').textContent = data.date || '--';
+  const srcEl = document.getElementById('sourceDisplay');
+  if (mode === 'static') {
+    srcEl.textContent = `静态快照（file:// 主源）· 数据日期 ${data.date || '--'}`;
+    srcEl.classList.add('static');
+  } else {
+    srcEl.textContent = `数据源: ${data.data_source || '--'} | 版本: ${data.engine_version || data.script_version || '1.0'}`;
+    srcEl.classList.remove('static');
+  }
+
+  // Theme
+  root.style.setProperty('--accent', gc.color);
+  root.style.setProperty('--accent-glow', gc.glow);
+  root.style.setProperty('--accent-border', gc.border);
+
+  // Hero
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('scoreNum').style.color = gc.color;
+  const gradeBadge = document.getElementById('gradeBadge');
+  gradeBadge.textContent = gc.label;
+  gradeBadge.style.background = gc.glow;
+  gradeBadge.style.color = gc.color;
+  gradeBadge.style.border = `1px solid ${gc.border}`;
+  document.getElementById('scoreLabel').textContent = `综合恢复分 ${score}/100`;
+  const heroRing = document.getElementById('heroRing');
+  heroRing.style.stroke = gc.color;
+  animateRing(heroRing, score);
+
+  // Alert
+  const alertBar = document.getElementById('alertBar');
+  if (trend.alert) {
+    alertBar.classList.remove('ok');
+    alertBar.classList.add('warn');
+    document.getElementById('alertIcon').textContent = '⚠️';
+    document.getElementById('alertText').textContent = trend.alert;
+  } else {
+    alertBar.classList.add('ok');
+    alertBar.classList.remove('warn');
+    document.getElementById('alertIcon').textContent = '✅';
+    document.getElementById('alertText').textContent = '近 5 天恢复状态稳定';
+  }
+
+  // Contribution
+  const steps = data.composite?.calculation_steps || [];
+  const contribMap = {};
+  steps.forEach(step => {
+    const m = step.match(/(\w+):\s*([\d.]+)\s*x\s*([\d.]+)\s*=\s*([\d.]+)/);
+    if (m) contribMap[m[1].toLowerCase()] = parseFloat(m[4]);
+  });
+  const totalContrib = Object.values(contribMap).reduce((a, b) => a + b, 0) || 1;
+  const dims = [
+    { key: 'hrv', label: 'HRV', color: 'var(--dim-hrv)' },
+    { key: 'sleep', label: 'Sleep', color: 'var(--dim-sleep)' },
+    { key: 'rhr', label: 'RHR', color: 'var(--dim-rhr)' },
+    { key: 'readiness', label: 'Ready', color: 'var(--dim-readiness)' },
+    { key: 'stress', label: 'Stress', color: 'var(--dim-stress)' },
+  ];
+  document.getElementById('contribBar').innerHTML = dims.map(d => {
+    const contrib = contribMap[d.key] || 0;
+    const pct = (contrib / totalContrib) * 100;
+    return `<div class="contrib-seg" style="width:${pct}%;background:${d.color};">${pct > 8 ? contrib.toFixed(1) : ''}</div>`;
+  }).join('');
+  document.getElementById('contribLegend').innerHTML = dims.map(d => {
+    const contrib = contribMap[d.key] || 0;
+    return `<div class="contrib-item">
+      <div class="contrib-dot" style="background:${d.color};"></div>
+      <div class="contrib-label">${d.label}</div>
+      <div class="contrib-val">${contrib.toFixed(1)} 分</div>
+    </div>`;
+  }).join('');
+
+  // Formula
+  const hrvC = contribMap['hrv'] || 0;
+  const sleepC = contribMap['sleep'] || 0;
+  const rhrC = contribMap['rhr'] || 0;
+  const readyC = contribMap['readiness'] || 0;
+  const stressC = contribMap['stress'] || 0;
+  document.getElementById('formulaBox').innerHTML = `
+    <div style="margin-bottom:6px;">&#x1F9EE; <strong>恢复分是怎么算出来的？</strong></div>
+    <div>你的恢复分由 <span class="d-hrv">HRV</span>、<span class="d-sleep">睡眠</span>、<span class="d-rhr">静息心率</span>、<span class="d-ready">训练准备度</span> 和 <span class="d-stress">压力</span> 五个方面综合计算。</div>
+    <div style="margin-top:8px;">每个维度有不同权重：</div>
+    <div style="margin-top:4px;padding-left:12px;">
+      &#x2022; <span class="d-hrv">HRV</span> 占 <span class="hl">${(weights.hrv * 100).toFixed(0)}%</span>（最重要，反映神经系统恢复）<br>
+      &#x2022; <span class="d-sleep">睡眠</span> 占 <span class="hl">${(weights.sleep * 100).toFixed(0)}%</span>（反映身体修复质量）<br>
+      &#x2022; <span class="d-rhr">静息心率</span> 占 <span class="hl">${(weights.rhr * 100).toFixed(0)}%</span>（反映心血管恢复）<br>
+      &#x2022; <span class="d-ready">训练准备度</span> 占 <span class="hl">${(weights.readiness * 100).toFixed(0)}%</span>（Garmin 综合评估）<br>
+      &#x2022; <span class="d-stress">压力</span> 占 <span class="hl">${(weights.stress * 100).toFixed(0)}%</span>（反映当前压力负荷）
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--ink-line);">
+      <strong>今日贡献：</strong><br>
+      HRV <span class="d-hrv">${hrvC.toFixed(1)}</span> + 睡眠 <span class="d-sleep">${sleepC.toFixed(1)}</span> + 静息心率 <span class="d-rhr">${rhrC.toFixed(1)}</span> + 准备度 <span class="d-ready">${readyC.toFixed(1)}</span> + 压力 <span class="d-stress">${stressC.toFixed(1)}</span> =
+      <span class="hl">${totalContrib.toFixed(1)}</span> → <span class="hl" style="font-size:16px;">${score} 分</span>
+    </div>
+  `;
+
+  // KPI Cards
+  const hrv = ds.hrv || {};
+  const rhr = ds.rhr || {};
+  const sleep = ds.sleep || {};
+  const readiness = ds.readiness || {};
+  const stress = ds.stress || {};
+  const hrvPct = derived.hrv_pct_change;
+  const rhrDev = derived.rhr_deviation_bpm;
+  const sleepH = derived.sleep_total_hours || (sleep.total_seconds ? sleep.total_seconds / 3600 : 0);
+  const deepPct = derived.sleep_deep_pct || (sleep.total_seconds ? (sleep.deep_seconds / sleep.total_seconds * 100) : 0);
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-header"><span class="kpi-icon">&#x1F9C0;</span><span class="kpi-name">HRV</span></div>
+      <div class="kpi-value" style="color:var(--dim-hrv);">${hrv.last_night_ms || '--'}<span class="kpi-unit">ms</span></div>
+      <div class="kpi-delta ${hrvPct > 0 ? 'up' : hrvPct < 0 ? 'down' : 'neutral'}">${hrvPct > 0 ? '&#x2191;' : hrvPct < 0 ? '&#x2193;' : '&#x2014;'} ${typeof hrvPct === 'number' ? Math.abs(hrvPct).toFixed(1) + '%' : '--'}</div>
+      <div class="kpi-desc">7天基线 ${data.baselines?.hrv_baseline_7d || '--'} ms。HRV 越高，神经系统恢复越好。</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, ((hrv.score || 0)))}%;background:var(--dim-hrv);"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-header"><span class="kpi-icon">&#x2764;&#xFE0F;</span><span class="kpi-name">静息心率</span></div>
+      <div class="kpi-value" style="color:var(--dim-rhr);">${rhr.current_bpm || '--'}<span class="kpi-unit">bpm</span></div>
+      <div class="kpi-delta ${rhrDev < 0 ? 'up' : rhrDev > 3 ? 'down' : 'neutral'}">${rhrDev < 0 ? '&#x2191;' : rhrDev > 0 ? '&#x2193;' : '&#x2014;'} ${typeof rhrDev === 'number' ? Math.abs(rhrDev) + ' bpm' : '--'}</div>
+      <div class="kpi-desc">28天基线 ${data.baselines?.rhr_baseline_28d || '--'} bpm。低于基线是恢复好的信号。</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, ((rhr.score || 0)))}%;background:var(--dim-rhr);"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-header"><span class="kpi-icon">&#x1F634;</span><span class="kpi-name">睡眠</span></div>
+      <div class="kpi-value" style="color:var(--dim-sleep);">${sleepH ? sleepH.toFixed(1) : '--'}<span class="kpi-unit">h</span></div>
+      <div class="kpi-delta ${sleepH >= 7 ? 'up' : sleepH >= 6 ? 'neutral' : 'down'}">${sleepH >= 7 ? '&#x2705; 充足' : sleepH >= 6 ? '&#x26A0; 略短' : '&#x1F6D1; 不足'}</div>
+      <div class="kpi-desc">深睡 ${deepPct ? deepPct.toFixed(0) : '--'}%。7天平均 ${data.baselines?.sleep_baseline_7d?.total_hours ? data.baselines.sleep_baseline_7d.total_hours.toFixed(1) : '--'} h。</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, (sleepH / 9) * 100)}%;background:var(--dim-sleep);"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-header"><span class="kpi-icon">&#x1F3C5;</span><span class="kpi-name">训练准备度</span></div>
+      <div class="kpi-value" style="color:var(--dim-readiness);">${readiness.score || '--'}<span class="kpi-unit">/100</span></div>
+      <div class="kpi-delta ${(readiness.score || 0) >= 80 ? 'up' : (readiness.score || 0) >= 60 ? 'neutral' : 'down'}">${(readiness.score || 0) >= 80 ? '&#x2705; 适合训练' : (readiness.score || 0) >= 60 ? '&#x26A0; 中等强度' : '&#x1F6D1; 建议休息'}</div>
+      <div class="kpi-desc">Garmin 综合评估今日训练适宜度。基于 HRV、睡眠、心率、急性疲劳。</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${readiness.score || 0}%;background:var(--dim-readiness);"></div></div>
+    </div>
+  `;
+
+  // ─── Trend Charts (由 drawAllCharts 末端的 cal_28d 子系统统一绘制，含 7/14/28 标签与缺测断点) ───
+
+  // (HRV + 静息心率双轴趋势由 cal_28d 子系统绘制)
+
+  // (睡眠时长趋势由 cal_28d 子系统绘制)
+
+  // (训练准备度趋势由 cal_28d 子系统绘制)
+
+  // ─── HRV Section ───
+  const hrvBase = data.baselines?.hrv_baseline_7d || '--';
+  document.getElementById('hrvFormula').innerHTML = `
+    <div style="margin-bottom:6px;"><strong>HRV 评分逻辑</strong></div>
+    <div>HRV 越高说明你的神经系统恢复得越好。系统会比较昨晚的 HRV 和最近 7 天的平均值。</div>
+    <div style="margin-top:8px;">
+      昨晚 HRV = <span class="d-hrv">${hrv.last_night_ms || '--'} ms</span><br>
+      7 天基线 = <span class="d-hrv">${hrvBase} ms</span><br>
+      变化 = <span class="d-hrv">${typeof hrvPct === 'number' ? ((hrvPct > 0 ? '+' : '') + hrvPct.toFixed(2)) : '--'}</span>
+    </div>
+    <div style="margin-top:8px;">变化率在 +5% 到 +10% 之间属于正常波动，高于 +10% 或低于 -5% 需要关注。</div>
+  `;
+  document.getElementById('hrvLast').textContent = `${hrv.last_night_ms || '--'} ms`;
+  document.getElementById('hrvBase').textContent = `${hrvBase} ms`;
+  const hrvChangeEl = document.getElementById('hrvChange');
+  if (typeof hrvPct === 'number') {
+    hrvChangeEl.textContent = `${hrvPct > 0 ? '+' : ''}${hrvPct.toFixed(2)}`;
+    hrvChangeEl.className = 'info-value ' + (hrvPct > 0.05 ? 'better' : hrvPct < -0.05 ? 'warn' : '');
+  } else {
+    hrvChangeEl.textContent = '--';
+  }
+  document.getElementById('hrvScore').textContent = `${hrv.score ?? '--'} / 100`;
+  // HRV text analysis
+  let hrvText = '';
+  if (hrvPct > 0.05) {
+    hrvText = `HRV <strong>高于</strong> 基线 <span class="good">${Math.abs(hrvPct).toFixed(1)}%</span>，神经系统恢复良好，副交感神经活性占优。`;
+  } else if (hrvPct < -0.05) {
+    hrvText = `HRV <strong>低于</strong> 基线 <span class="bad">${Math.abs(hrvPct).toFixed(1)}%</span>，可能仍有疲劳积累，交感神经占优。`;
+  } else {
+    hrvText = `HRV <strong>接近基线水平</strong>（变化 ${typeof hrvPct === 'number' ? hrvPct.toFixed(1) : '--'}%），恢复状态一般。`;
+  }
+  document.getElementById('hrvAnalysis').innerHTML = hrvText;
+
+  // ─── RHR Section ───
+  const rhrBase = data.baselines?.rhr_baseline_28d || '--';
+  document.getElementById('rhrFormula').innerHTML = `
+    <div style="margin-bottom:6px;"><strong>静息心率评分逻辑</strong></div>
+    <div>静息心率越低（在正常范围内），说明心脏效率越高，恢复越好。系统会比较当前心率和 28 天平均值。</div>
+    <div style="margin-top:8px;">
+      当前心率 = <span class="d-rhr">${rhr.current_bpm || '--'} bpm</span><br>
+      28 天基线 = <span class="d-rhr">${rhrBase} bpm</span><br>
+      偏差 = <span class="d-rhr">${typeof rhrDev === 'number' ? (rhrDev > 0 ? '+' : '') + rhrDev + ' bpm' : '--'}</span>
+    </div>
+    <div style="margin-top:8px;">低于基线 3 bpm 以上是很好的恢复信号；高于基线 3 bpm 可能意味着疲劳积累。</div>
+  `;
+  document.getElementById('rhrCurrent').textContent = `${rhr.current_bpm || '--'} bpm`;
+  document.getElementById('rhrBase').textContent = `${rhrBase} bpm`;
+  const rhrDevEl = document.getElementById('rhrDev');
+  if (typeof rhrDev === 'number') {
+    rhrDevEl.textContent = `${rhrDev > 0 ? '+' : ''}${rhrDev} bpm`;
+    rhrDevEl.className = 'info-value ' + (rhrDev < 0 ? 'better' : rhrDev > 3 ? 'warn' : '');
+  } else {
+    rhrDevEl.textContent = '--';
+  }
+  document.getElementById('rhrScore').textContent = `${rhr.score ?? '--'} / 100`;
+  let rhrText = '';
+  if (rhrDev < -2) {
+    rhrText = `静息心率 <strong>低于</strong> 基线 <span class="good">${Math.abs(rhrDev)} bpm</span>，副交感神经占优，是身体恢复良好的信号。`;
+  } else if (rhrDev > 2) {
+    rhrText = `静息心率 <strong>高于</strong> 基线 <span class="bad">+${rhrDev} bpm</span>，可能积累疲劳，建议关注恢复质量。`;
+  } else {
+    rhrText = `静息心率 <strong>接近基线水平</strong>（偏差 ${typeof rhrDev === 'number' ? (rhrDev > 0 ? '+' : '') + rhrDev : '--'} bpm），心血管恢复状态一般。`;
+  }
+  document.getElementById('rhrAnalysis').innerHTML = rhrText;
+
+  // ─── Sleep Section ───
+  const garminUsed = sleep.garmin_score_used;
+  const sleepNote = document.getElementById('sleepNote');
+  if (garminUsed) {
+    sleepNote.innerHTML = '&#x2705; 使用 Garmin 官方睡眠评分（综合时长、深睡、REM、睡眠连续性）';
+    sleepNote.style.background = 'rgba(45,106,79,0.1)';
+    sleepNote.style.color = 'var(--excellent)';
+  } else {
+    sleepNote.innerHTML = '&#x1F4CB; 使用自定义睡眠评分';
+    sleepNote.style.background = 'rgba(31,58,138,0.08)';
+    sleepNote.style.color = 'var(--text-dim)';
+  }
+  const sleepSec = sleep.total_seconds || 0;
+  const deepSec = sleep.deep_seconds || 0;
+  const remSec = sleep.rem_seconds || 0;
+  const awakeCnt = sleep.awake_count ?? '--';
+  document.getElementById('sleepTotal').textContent = sleepSec ? (sleepSec / 3600).toFixed(1) : '--';
+  document.getElementById('deepPct').textContent = deepPct ? `${deepPct.toFixed(0)}%` : '--';
+  document.getElementById('deepTime').textContent = deepSec ? `${(deepSec / 3600).toFixed(1)}h` : '--';
+  document.getElementById('remTime').textContent = remSec ? `${(remSec / 3600).toFixed(1)}h` : '--';
+  document.getElementById('awakeCount').textContent = awakeCnt;
+  document.getElementById('sleepScore').textContent = `${sleep.score ?? '--'} / 100`;
+  // Sleep text analysis
+  let sleepText = '';
+  const sleepHVal = sleepSec / 3600;
+  if (sleepHVal >= 7) {
+    sleepText = `睡眠 <strong>充足</strong>（<span class="good">${sleepHVal.toFixed(1)} 小时</span>），深睡占比 ${deepPct ? deepPct.toFixed(0) : '--'}%。${deepPct > 25 ? '深睡略多，可能是补觉。' : '睡眠结构正常。'}`;
+  } else if (sleepHVal >= 6) {
+    sleepText = `睡眠 <strong>略短</strong>（<span class="warn">${sleepHVal.toFixed(1)} 小时</span>），建议尽量睡满 7 小时以保障恢复。`;
+  } else {
+    sleepText = `睡眠 <strong>不足</strong>（<span class="bad">${sleepHVal.toFixed(1)} 小时</span>），恢复会受影响，今天应避免高强度训练。`;
+  }
+  if (awakeCnt > 2) {
+    sleepText += ` 清醒 ${awakeCnt} 次，睡眠连续性欠佳。`;
+  }
+  document.getElementById('sleepAnalysis').innerHTML = sleepText;
+
+  // ─── Patterns ───
+  const patternMeanings = {
+    'IDEAL_RECOVERY': '理想恢复状态：HRV 高、心率低、睡眠好，身体处于最佳恢复期。',
+    'SYMPATHETIC_FATIGUE': '交感神经疲劳：HRV 低、心率高、睡眠差，可能是过度训练或压力过大。',
+    'PARASYMPATHETIC_REBOUND': '副交感反弹：HRV 异常高、心率异常低，通常是深度恢复后的 rebound 现象。',
+    'SLEEP_DEBT': '睡眠债务：HRV 偏低、睡眠不足，身体在积累睡眠负债。',
+    'HIGH_LOAD_ADAPTATION': '高负荷适应：HRV 略降、心率略升但睡眠正常，可能是训练适应期的正常反应。'
+  };
+  document.getElementById('patternsList').innerHTML = patterns.map(p => {
+    const cls = p.match ? 'pattern-item matched' : 'pattern-item';
+    const icon = p.match ? '&#x2705;' : '&#x26A0;&#xFE0F;';
+    const meaning = patternMeanings[p.id] || p.condition_desc || '';
+    return `<div class="${cls}">
+      <div class="pattern-icon">${icon}</div>
+      <div class="pattern-content">
+        <div class="pattern-name">${p.label}</div>
+        <div class="pattern-desc">${p.condition_desc || ''}</div>
+        <div class="pattern-meaning">&#x1F4A1; ${meaning}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ─── Advice ───
+  const adviceList = document.getElementById('adviceList');
+  let adviceItems = [];
+  if (grade === 'A' || grade === 'B') {
+    adviceItems = [
+      { icon: '&#x1F3C3;', text: '可以进行 <strong>正常训练</strong>，状态良好，适合提高强度。' },
+      { icon: '&#x23F1;&#xFE0F;', text: '建议训练时长 <strong>45-60 分钟</strong>。' },
+      { icon: '&#x26A1;', text: '可以尝试 <strong>中等强度</strong>（心率区间 2-3）。' },
+    ];
+  } else if (grade === 'C') {
+    adviceItems = [
+      { icon: '&#x1F3C3;', text: '建议 <strong>低强度有氧</strong> 或 <strong>主动恢复</strong>（散步、瑜伽、拉伸）。' },
+      { icon: '&#x23F1;&#xFE0F;', text: '建议训练时长 <strong>30 分钟以内</strong>，或改为恢复活动。' },
+      { icon: '&#x26A1;', text: '保持 <strong>低强度</strong>（心率区间 1），避免冲刺或高强度间歇。' },
+    ];
+  } else if (grade === 'D') {
+    adviceItems = [
+      { icon: '&#x1F6D1;', text: '建议 <strong>休息或极低强度活动</strong>，身体需要更多恢复时间。' },
+      { icon: '&#x23F1;&#xFE0F;', text: '今天 <strong>不建议训练</strong>，让身体充分修复。' },
+      { icon: '&#x1F4A8;', text: '如果必须动，只能是 <strong>散步 10-15 分钟</strong>。' },
+    ];
+  } else {
+    adviceItems = [
+      { icon: '&#x1F4A4;', text: '<strong>充分休息</strong>，今天不要训练。' },
+      { icon: '&#x1F375;', text: '注意补充营养和水分，保证睡眠质量。' },
+      { icon: '&#x1F30D;', text: '明天再评估状态，不要强行训练。' },
+    ];
+  }
+  adviceList.innerHTML = adviceItems.map(item => `
+    <div class="advice-item">
+      <div class="advice-icon">${item.icon}</div>
+      <div class="advice-content">${item.text}</div>
+    </div>
+  `).join('');
+
+  // Show
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+
+  // Draw charts after layout settles
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try { drawAllCharts(data); } catch (e) { console.warn('Chart render error:', e); }
+    });
+  });
+}
+
+// ── cal_28d 图表子系统（对齐标准版 KPI_DATA_CONTRACT）──
+// 用 history.*_cal_28d（严格 28 日历日，null=缺测）渲染，
+// 支持 7/14/28 天标签切换与缺口断点（不插值）。
+// 注意：cal_28d 数组为「升序」（最旧在前、最新在后），最近 win 天 = 末尾 win 条（slice(-win)）。
+let RAW_DATA = null;
+const CHART_WIN = { recovery: 28, dual: 28, sleep: 28, ready: 28 };
+
+function sliceCal(arr, win) {
+  // 升序数组：最近 win 天 = 末尾 win 条
+  return (arr || []).slice(-win);
+}
+
+// 用 cal_* 数组绘制: x 轴按索引等距定位(严格日历日), 缺测(null)处断线不插值
+function drawCalChart(canvasId, datasets, opts = {}) {
+  const setup = setupCanvas(canvasId);
+  if (!setup) return;
+  const { canvas, ctx, w, h } = setup;
+  const tooltipId = canvasId.replace('Chart', 'Tooltip');
+  const tooltip = document.getElementById(tooltipId);
+  const pad = { top: 20, right: 16, bottom: 30, left: 40 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+  if (chartW <= 0 || chartH <= 0) return;
+  try {
+    const allVals = [];
+    datasets.forEach(ds => ds.data.forEach(v => { if (v && v.value != null) allVals.push(v.value); }));
+    if (!allVals.length) {
+      ctx.fillStyle = 'rgba(100,116,139,0.4)';
+      ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('暂无数据', w / 2, h / 2);
+      return;
+    }
+    let minVal = opts.minVal !== undefined ? opts.minVal : Math.min(...allVals);
+    let maxVal = opts.maxVal !== undefined ? opts.maxVal : Math.max(...allVals);
+    const range = maxVal - minVal || 1;
+    if (opts.minVal === undefined) minVal -= range * 0.1;
+    if (opts.maxVal === undefined) maxVal += range * 0.1;
+    const valRange = maxVal - minVal;
+    const n = Math.max(...datasets.map(ds => ds.data.length));
+    const stepX = chartW / (n - 1 || 1);
+    const xAt = i => pad.left + i * stepX;
+    const yAt = v => pad.top + chartH - ((v - minVal) / valRange) * chartH;
+
+    // 警戒线
+    if (opts.threshold !== undefined) {
+      const threshY = yAt(opts.threshold);
+      ctx.strokeStyle = 'rgba(193,18,31,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(pad.left, threshY); ctx.lineTo(w - pad.right, threshY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(193,18,31,0.6)'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(`${opts.thresholdLabel || opts.threshold}`, w - pad.right, threshY - 4);
+    }
+
+    // 缺测日竖条 (所有数据集该索引都为 null)
+    for (let i = 0; i < n; i++) {
+      const allNull = datasets.every(ds => !(ds.data[i] && ds.data[i].value != null));
+      if (allNull) {
+        ctx.strokeStyle = 'rgba(52,87,196,0.12)'; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(xAt(i), pad.top); ctx.lineTo(xAt(i), pad.top + chartH); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    const pointMap = [];
+    datasets.forEach(ds => {
+      const data = ds.data;
+      // 分段面积填充 (连续非 null 段)
+      let i = 0;
+      while (i < n) {
+        if (data[i] && data[i].value != null) {
+          let j = i; while (j < n && data[j] && data[j].value != null) j++;
+          ctx.beginPath();
+          ctx.moveTo(xAt(i), pad.top + chartH);
+          for (let k = i; k < j; k++) ctx.lineTo(xAt(k), yAt(data[k].value));
+          ctx.lineTo(xAt(j - 1), pad.top + chartH);
+          ctx.closePath();
+          ctx.fillStyle = ds.fillColor || 'rgba(31,58,138,0.08)';
+          ctx.fill();
+          i = j;
+        } else i++;
+      }
+      // 折线 (遇 null 提笔断开)
+      ctx.beginPath();
+      let pen = false;
+      for (let i2 = 0; i2 < n; i2++) {
+        const v = data[i2];
+        if (v && v.value != null) {
+          const x = xAt(i2), y = yAt(v.value);
+          if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
+        } else pen = false;
+      }
+      ctx.strokeStyle = ds.color || '#1F3A8A'; ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+      // 点
+      for (let i3 = 0; i3 < n; i3++) {
+        const v = data[i3];
+        if (v && v.value != null) {
+          const x = xAt(i3), y = yAt(v.value);
+          ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI);
+          ctx.fillStyle = ds.color || '#1F3A8A'; ctx.fill();
+          ctx.strokeStyle = '#F8F1D6'; ctx.lineWidth = 2; ctx.stroke();
+          pointMap.push({ x, y, value: v.value, label: v.label || v.date, color: ds.color });
+        }
+      }
+    });
+
+    // Y 轴
+    ctx.fillStyle = 'rgba(52,87,196,0.6)'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const val = minVal + valRange * i / 4;
+      const y = pad.top + chartH - (i / 4) * chartH;
+      ctx.fillText(Math.round(val), pad.left - 6, y + 3);
+    }
+    // X 轴 (日期标签)
+    const firstDs = datasets[0].data;
+    ctx.fillStyle = 'rgba(52,87,196,0.6)'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    const maxLabels = Math.floor(chartW / 50);
+    const skip = Math.max(1, Math.ceil(n / maxLabels));
+    firstDs.forEach((pt, i) => {
+      if (i % skip === 0 || i === n - 1) {
+        const x = xAt(i);
+        const label = pt.shortLabel || pt.label || (pt.date ? pt.date.slice(5) : '');
+        ctx.fillText(label, x, h - pad.bottom + 14);
+      }
+    });
+
+    // hover
+    if (tooltip && pointMap.length) {
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        let closest = null, cd = Infinity;
+        pointMap.forEach(p => { const d = Math.hypot(p.x - mx, p.y - my); if (d < cd) { cd = d; closest = p; } });
+        if (closest && cd < 30) {
+          const valStr = opts.valueFormat === 'pct' ? closest.value.toFixed(1) + '%' : Math.round(closest.value) + (opts.unit || '');
+          tooltip.innerHTML = `<div class="tt-date">${closest.label}</div><div class="tt-val" style="color:${closest.color};">${valStr}</div>`;
+          tooltip.classList.add('show');
+          tooltip.style.left = Math.min(closest.x + 10, w - 80) + 'px';
+          tooltip.style.top = Math.max(closest.y - 40, 4) + 'px';
+        } else tooltip.classList.remove('show');
+      };
+      canvas.onmouseleave = () => tooltip.classList.remove('show');
+    }
+  } catch (err) {
+    console.warn('drawCalChart error', canvasId, err);
+  }
+}
+
+function buildChart(name, win) {
+  const h = (RAW_DATA && RAW_DATA.history) || {};
+  if (name === 'recovery') {
+    const arr = sliceCal(h.recovery_cal_28d, win).map(e => ({ date: e.date, value: e.value }));
+    return { canvas: 'trendChart', datasets: [{ data: arr, color: '#1F3A8A', fillColor: 'rgba(31,58,138,0.1)' }],
+             opts: { threshold: 60, thresholdLabel: '警戒线', valueFormat: 'number', unit: '' }, covId: 'recoveryCov' };
+  }
+  if (name === 'dual') {
+    const hrv = sliceCal(h.hrv_cal_28d, win).map(e => ({ date: e.date, value: e.value }));
+    const rhr = sliceCal(h.rhr_cal_28d, win).map(e => ({ date: e.date, value: e.value }));
+    return { canvas: 'dualChart', datasets: [
+      { data: hrv, color: '#6B7A2E', fillColor: 'rgba(107,122,46,0.08)' },
+      { data: rhr, color: '#8b4513', fillColor: 'rgba(139,69,19,0.08)' }
+    ], opts: { valueFormat: 'number', unit: '' }, covId: 'dualCov' };
+  }
+  if (name === 'sleep') {
+    const arr = sliceCal(h.sleep_cal_28d, win).map(e => ({ date: e.date, value: e.value ? e.value.total_sec / 3600 : null }));
+    return { canvas: 'sleepChart', datasets: [{ data: arr, color: '#2d6a4f', fillColor: 'rgba(45,106,79,0.1)' }],
+             opts: { threshold: 7, thresholdLabel: '目标7h', minVal: 0, maxVal: 10, valueFormat: 'decimal', unit: 'h' }, covId: 'sleepCov' };
+  }
+  if (name === 'ready') {
+    const arr = sliceCal(h.readiness_cal_28d, win).map(e => ({ date: e.date, value: e.value ? e.value.score : null }));
+    return { canvas: 'readyChart', datasets: [{ data: arr, color: '#D8702A', fillColor: 'rgba(216,112,42,0.1)' }],
+             opts: { threshold: 80, thresholdLabel: '训练线80', minVal: 0, maxVal: 100, valueFormat: 'number', unit: '' }, covId: 'readyCov' };
+  }
+  return null;
+}
+
+function redrawChart(name) {
+  const cfg = buildChart(name, CHART_WIN[name]);
+  if (!cfg) return;
+  drawCalChart(cfg.canvas, cfg.datasets, cfg.opts);
+  // 覆盖率徽标
+  const total = cfg.datasets[0].data.length;
+  const valid = Math.round(cfg.datasets.reduce((s, ds) => s + ds.data.filter(v => v && v.value != null).length, 0) / cfg.datasets.length);
+  const cov = document.getElementById(cfg.covId);
+  if (cov) {
+    const pct = total ? Math.round(valid / total * 100) : 0;
+    cov.innerHTML = `<b>${valid}/${total}</b> 天`;
+    cov.classList.toggle('low', pct < 60);
+  }
+  if (name === 'recovery') {
+    const sub = document.getElementById('trendSubtitle');
+    if (sub) sub.textContent = `近 ${CHART_WIN.recovery} 天恢复评分（警戒线 60）`;
+  }
+}
+
+function drawAllCharts(data) {
+  RAW_DATA = data;
+  ['recovery', 'dual', 'sleep', 'ready'].forEach(redrawChart);
+}
+
+function initTabs() {
+  document.querySelectorAll('.chart-tabs').forEach(bar => {
+    const name = bar.getAttribute('data-chart');
+    bar.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        CHART_WIN[name] = parseInt(btn.getAttribute('data-win'), 10);
+        redrawChart(name);
+      });
+    });
+  });
+}
+
+function getDataUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const date = params.get('date');
+  if (date) return `../kpi_${date}.json`;
+  return '../kpi_today.json';
+}
+
+const STATIC_DATA = {
+  "date": "2026-07-16",
+  "generated_at": "2026-07-16 00:00:00",
+  "engine_version": "2.0",
+  "design_doc": "docs/design-morning-advisor.md",
+  "references_count": 24,
+  "data_source": "local_db ()",
+  "latest_db_date": "2026-07-16",
+  "raw_inputs": {
+    "hrv": {
+      "last_night": 73,
+      "weekly_avg": 68,
+      "status": "BALANCED"
+    },
+    "rhr": {
+      "current_bpm": 43
+    },
+    "sleep": {
+      "total_seconds": 27900,
+      "deep_seconds": 4980,
+      "rem_seconds": 7800,
+      "awake_count": 0,
+      "garmin_sleep_score": 97
+    },
+    "readiness": {
+      "score": 91,
+      "level": "HIGH"
+    },
+    "profile": {
+      "vo2max": "",
+      "bmi": null,
+      "device": "Forerunner 955 Solar",
+      "fitness_age": "",
+      "chronological_age": "",
+      "training_status_phrase": "RECOVERY",
+      "acwr_percent": 0,
+      "total_steps": null,
+      "total_distance_m": null,
+      "active_calories": null,
+      "avg_stress": 14,
+      "max_stress": 84,
+      "min_hr": null,
+      "max_hr": null,
+      "body_battery_charged": null,
+      "body_battery_drained": null,
+      "avg_spo2": null
+    },
+    "race_predictions": {},
+    "stress_raw": {
+      "avg_stress_level": 14,
+      "max_stress_level": 84
+    }
+  },
+  "history": {
+    "hrv_14d": [
+      {
+        "date": "2026-07-16",
+        "value": 73
+      },
+      {
+        "date": "2026-07-14",
+        "value": 52
+      },
+      {
+        "date": "2026-07-13",
+        "value": 75
+      },
+      {
+        "date": "2026-07-12",
+        "value": 66
+      },
+      {
+        "date": "2026-07-11",
+        "value": 80
+      },
+      {
+        "date": "2026-07-10",
+        "value": 67
+      },
+      {
+        "date": "2026-07-08",
+        "value": 61
+      },
+      {
+        "date": "2026-07-06",
+        "value": 59
+      },
+      {
+        "date": "2026-07-05",
+        "value": 76
+      },
+      {
+        "date": "2026-07-04",
+        "value": 81
+      },
+      {
+        "date": "2026-07-03",
+        "value": 69
+      },
+      {
+        "date": "2026-07-02",
+        "value": 89
+      },
+      {
+        "date": "2026-07-01",
+        "value": 67
+      },
+      {
+        "date": "2026-06-29",
+        "value": 64
+      }
+    ],
+    "rhr_28d": [
+      {
+        "date": "2026-07-16",
+        "value": 43
+      },
+      {
+        "date": "2026-07-14",
+        "value": 47
+      },
+      {
+        "date": "2026-07-13",
+        "value": 43
+      },
+      {
+        "date": "2026-07-12",
+        "value": 42
+      },
+      {
+        "date": "2026-07-11",
+        "value": 43
+      },
+      {
+        "date": "2026-07-10",
+        "value": 43
+      },
+      {
+        "date": "2026-07-09",
+        "value": 46
+      },
+      {
+        "date": "2026-07-08",
+        "value": 44
+      },
+      {
+        "date": "2026-07-07",
+        "value": 45
+      },
+      {
+        "date": "2026-07-06",
+        "value": 42
+      },
+      {
+        "date": "2026-07-05",
+        "value": 40
+      },
+      {
+        "date": "2026-07-04",
+        "value": 39
+      },
+      {
+        "date": "2026-07-03",
+        "value": 42
+      },
+      {
+        "date": "2026-07-02",
+        "value": 41
+      },
+      {
+        "date": "2026-07-01",
+        "value": 43
+      },
+      {
+        "date": "2026-06-30",
+        "value": 74
+      },
+      {
+        "date": "2026-06-29",
+        "value": 42
+      },
+      {
+        "date": "2026-06-28",
+        "value": 71
+      },
+      {
+        "date": "2026-06-27",
+        "value": 72
+      },
+      {
+        "date": "2026-06-26",
+        "value": 46
+      },
+      {
+        "date": "2026-06-25",
+        "value": 47
+      },
+      {
+        "date": "2026-06-18",
+        "value": 45
+      },
+      {
+        "date": "2026-06-17",
+        "value": 45
+      },
+      {
+        "date": "2026-06-16",
+        "value": 42
+      },
+      {
+        "date": "2026-06-15",
+        "value": 44
+      },
+      {
+        "date": "2026-06-14",
+        "value": 41
+      },
+      {
+        "date": "2026-06-12",
+        "value": 43
+      },
+      {
+        "date": "2026-06-11",
+        "value": 46
+      }
+    ],
+    "sleep_28d": [
+      {
+        "date": "2026-07-16",
+        "total_sec": 27900,
+        "deep_sec": 4980
+      },
+      {
+        "date": "2026-07-14",
+        "total_sec": 20134,
+        "deep_sec": 6480
+      },
+      {
+        "date": "2026-07-13",
+        "total_sec": 21900,
+        "deep_sec": 6240
+      },
+      {
+        "date": "2026-07-12",
+        "total_sec": 27720,
+        "deep_sec": 4860
+      },
+      {
+        "date": "2026-07-11",
+        "total_sec": 27151,
+        "deep_sec": 4440
+      },
+      {
+        "date": "2026-07-10",
+        "total_sec": 32580,
+        "deep_sec": 4740
+      },
+      {
+        "date": "2026-07-08",
+        "total_sec": 30780,
+        "deep_sec": 6300
+      },
+      {
+        "date": "2026-07-06",
+        "total_sec": 31248,
+        "deep_sec": 6480
+      },
+      {
+        "date": "2026-07-05",
+        "total_sec": 25980,
+        "deep_sec": 7380
+      },
+      {
+        "date": "2026-07-04",
+        "total_sec": 32880,
+        "deep_sec": 9420
+      },
+      {
+        "date": "2026-07-03",
+        "total_sec": 25860,
+        "deep_sec": 8820
+      },
+      {
+        "date": "2026-07-02",
+        "total_sec": 19200,
+        "deep_sec": 5220
+      },
+      {
+        "date": "2026-07-01",
+        "total_sec": 22380,
+        "deep_sec": 4020
+      },
+      {
+        "date": "2026-06-29",
+        "total_sec": 15300,
+        "deep_sec": 6540
+      },
+      {
+        "date": "2026-06-26",
+        "total_sec": 17580,
+        "deep_sec": 7980
+      }
+    ],
+    "readiness_28d": [
+      {
+        "date": "2026-07-16",
+        "score": 91,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-15",
+        "score": 61,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-14",
+        "score": 58,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-13",
+        "score": 60,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-12",
+        "score": 100,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-11",
+        "score": 100,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-10",
+        "score": 97,
+        "level": "PRIME"
+      },
+      {
+        "date": "2026-07-09",
+        "score": 69,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-08",
+        "score": 79,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-07",
+        "score": 75,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-06",
+        "score": 93,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-05",
+        "score": 92,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-04",
+        "score": 92,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-07-03",
+        "score": 71,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-02",
+        "score": 65,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-07-01",
+        "score": 63,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-30",
+        "score": 39,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-29",
+        "score": 44,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-28",
+        "score": 69,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-27",
+        "score": 50,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-26",
+        "score": 44,
+        "level": "LOW"
+      },
+      {
+        "date": "2026-06-25",
+        "score": 75,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-24",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-23",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-22",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-21",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-20",
+        "score": 94,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-19",
+        "score": 77,
+        "level": "HIGH"
+      },
+      {
+        "date": "2026-06-18",
+        "score": 74,
+        "level": "MODERATE"
+      },
+      {
+        "date": "2026-06-17",
+        "score": 75,
+        "level": "HIGH"
+      }
+    ],
+    "hrv_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": 59
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": 64
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": 67
+      },
+      {
+        "date": "2026-07-02",
+        "value": 89
+      },
+      {
+        "date": "2026-07-03",
+        "value": 69
+      },
+      {
+        "date": "2026-07-04",
+        "value": 81
+      },
+      {
+        "date": "2026-07-05",
+        "value": 76
+      },
+      {
+        "date": "2026-07-06",
+        "value": 59
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": 61
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": 67
+      },
+      {
+        "date": "2026-07-11",
+        "value": 80
+      },
+      {
+        "date": "2026-07-12",
+        "value": 66
+      },
+      {
+        "date": "2026-07-13",
+        "value": 75
+      },
+      {
+        "date": "2026-07-14",
+        "value": 52
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 73
+      }
+    ],
+    "rhr_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": 47
+      },
+      {
+        "date": "2026-06-26",
+        "value": 46
+      },
+      {
+        "date": "2026-06-27",
+        "value": 72
+      },
+      {
+        "date": "2026-06-28",
+        "value": 71
+      },
+      {
+        "date": "2026-06-29",
+        "value": 42
+      },
+      {
+        "date": "2026-06-30",
+        "value": 74
+      },
+      {
+        "date": "2026-07-01",
+        "value": 43
+      },
+      {
+        "date": "2026-07-02",
+        "value": 41
+      },
+      {
+        "date": "2026-07-03",
+        "value": 42
+      },
+      {
+        "date": "2026-07-04",
+        "value": 39
+      },
+      {
+        "date": "2026-07-05",
+        "value": 40
+      },
+      {
+        "date": "2026-07-06",
+        "value": 42
+      },
+      {
+        "date": "2026-07-07",
+        "value": 45
+      },
+      {
+        "date": "2026-07-08",
+        "value": 44
+      },
+      {
+        "date": "2026-07-09",
+        "value": 46
+      },
+      {
+        "date": "2026-07-10",
+        "value": 43
+      },
+      {
+        "date": "2026-07-11",
+        "value": 43
+      },
+      {
+        "date": "2026-07-12",
+        "value": 42
+      },
+      {
+        "date": "2026-07-13",
+        "value": 43
+      },
+      {
+        "date": "2026-07-14",
+        "value": 47
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 43
+      }
+    ],
+    "sleep_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": {
+          "total_sec": 17580,
+          "deep_sec": 7980,
+          "garmin_score": 65
+        }
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": {
+          "total_sec": 15300,
+          "deep_sec": 6540,
+          "garmin_score": 58
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": {
+          "total_sec": 22380,
+          "deep_sec": 4020,
+          "garmin_score": 78
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "value": {
+          "total_sec": 19200,
+          "deep_sec": 5220,
+          "garmin_score": 69
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "value": {
+          "total_sec": 25860,
+          "deep_sec": 8820,
+          "garmin_score": 81
+        }
+      },
+      {
+        "date": "2026-07-04",
+        "value": {
+          "total_sec": 32880,
+          "deep_sec": 9420,
+          "garmin_score": 95
+        }
+      },
+      {
+        "date": "2026-07-05",
+        "value": {
+          "total_sec": 25980,
+          "deep_sec": 7380,
+          "garmin_score": 87
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "value": {
+          "total_sec": 31248,
+          "deep_sec": 6480,
+          "garmin_score": 92
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": {
+          "total_sec": 30780,
+          "deep_sec": 6300,
+          "garmin_score": 83
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": {
+          "total_sec": 32580,
+          "deep_sec": 4740,
+          "garmin_score": 88
+        }
+      },
+      {
+        "date": "2026-07-11",
+        "value": {
+          "total_sec": 27151,
+          "deep_sec": 4440,
+          "garmin_score": 89
+        }
+      },
+      {
+        "date": "2026-07-12",
+        "value": {
+          "total_sec": 27720,
+          "deep_sec": 4860,
+          "garmin_score": 87
+        }
+      },
+      {
+        "date": "2026-07-13",
+        "value": {
+          "total_sec": 21900,
+          "deep_sec": 6240,
+          "garmin_score": 80
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "value": {
+          "total_sec": 20134,
+          "deep_sec": 6480,
+          "garmin_score": 72
+        }
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": {
+          "total_sec": 27900,
+          "deep_sec": 4980,
+          "garmin_score": 97
+        }
+      }
+    ],
+    "readiness_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": {
+          "score": 77,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-20",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-21",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-22",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-23",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-24",
+        "value": {
+          "score": 94,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "value": {
+          "score": 75,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-06-26",
+        "value": {
+          "score": 44,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-06-27",
+        "value": {
+          "score": 50,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-06-28",
+        "value": {
+          "score": 69,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-06-29",
+        "value": {
+          "score": 44,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "value": {
+          "score": 39,
+          "level": "LOW"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "value": {
+          "score": 63,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "value": {
+          "score": 65,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "value": {
+          "score": 71,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-04",
+        "value": {
+          "score": 92,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-05",
+        "value": {
+          "score": 92,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "value": {
+          "score": 93,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "value": {
+          "score": 75,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-08",
+        "value": {
+          "score": 79,
+          "level": "HIGH"
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "value": {
+          "score": 69,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-10",
+        "value": {
+          "score": 97,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-11",
+        "value": {
+          "score": 100,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-12",
+        "value": {
+          "score": 100,
+          "level": "PRIME"
+        }
+      },
+      {
+        "date": "2026-07-13",
+        "value": {
+          "score": 60,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "value": {
+          "score": 58,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-15",
+        "value": {
+          "score": 61,
+          "level": "MODERATE"
+        }
+      },
+      {
+        "date": "2026-07-16",
+        "value": {
+          "score": 91,
+          "level": "HIGH"
+        }
+      }
+    ],
+    "recovery_cal_28d": [
+      {
+        "date": "2026-06-19",
+        "value": null
+      },
+      {
+        "date": "2026-06-20",
+        "value": null
+      },
+      {
+        "date": "2026-06-21",
+        "value": null
+      },
+      {
+        "date": "2026-06-22",
+        "value": null
+      },
+      {
+        "date": "2026-06-23",
+        "value": null
+      },
+      {
+        "date": "2026-06-24",
+        "value": null
+      },
+      {
+        "date": "2026-06-25",
+        "value": null
+      },
+      {
+        "date": "2026-06-26",
+        "value": 66
+      },
+      {
+        "date": "2026-06-27",
+        "value": null
+      },
+      {
+        "date": "2026-06-28",
+        "value": null
+      },
+      {
+        "date": "2026-06-29",
+        "value": 70
+      },
+      {
+        "date": "2026-06-30",
+        "value": null
+      },
+      {
+        "date": "2026-07-01",
+        "value": 78
+      },
+      {
+        "date": "2026-07-02",
+        "value": 80
+      },
+      {
+        "date": "2026-07-03",
+        "value": 81
+      },
+      {
+        "date": "2026-07-04",
+        "value": 90
+      },
+      {
+        "date": "2026-07-05",
+        "value": 87
+      },
+      {
+        "date": "2026-07-06",
+        "value": 84
+      },
+      {
+        "date": "2026-07-07",
+        "value": null
+      },
+      {
+        "date": "2026-07-08",
+        "value": 78
+      },
+      {
+        "date": "2026-07-09",
+        "value": null
+      },
+      {
+        "date": "2026-07-10",
+        "value": 86
+      },
+      {
+        "date": "2026-07-11",
+        "value": 90
+      },
+      {
+        "date": "2026-07-12",
+        "value": 86
+      },
+      {
+        "date": "2026-07-13",
+        "value": 80
+      },
+      {
+        "date": "2026-07-14",
+        "value": 63
+      },
+      {
+        "date": "2026-07-15",
+        "value": null
+      },
+      {
+        "date": "2026-07-16",
+        "value": 89
+      }
+    ]
+  },
+  "baselines": {
+    "hrv_baseline_7d": 70,
+    "rhr_baseline_28d": 46,
+    "sleep_baseline_7d": {
+      "total_seconds": 26881,
+      "total_hours": 7.47,
+      "deep_pct_avg": 21.1
+    },
+    "formulas": {
+      "hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014 [R7]",
+      "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]",
+      "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004 [R16]"
+    }
+  },
+  "dimension_scores": {
+    "hrv": {
+      "last_night_ms": 73,
+      "weekly_avg_ms": 70,
+      "fallback_used": false,
+      "ln_last_night": 4.2905,
+      "ln_baseline": 4.2485,
+      "pct_change": 0.009877,
+      "pct_change_pct": 0.99,
+      "anchors": [
+        {
+          "pct_change": 0.1,
+          "score": 70,
+          "label": "spike"
+        },
+        {
+          "pct_change": 0.05,
+          "score": 85,
+          "label": "green_high"
+        },
+        {
+          "pct_change": 0.0,
+          "score": 75,
+          "label": "green_normal_mid"
+        },
+        {
+          "pct_change": -0.05,
+          "score": 60,
+          "label": "green_low_yellow_high"
+        },
+        {
+          "pct_change": -0.08,
+          "score": 40,
+          "label": "yellow_low_red_high"
+        },
+        {
+          "pct_change": -0.15,
+          "score": 10,
+          "label": "red_deep"
+        },
+        {
+          "pct_change": -0.2,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 77,
+      "zone": "green_high"
+    },
+    "rhr": {
+      "current_bpm": 43,
+      "baseline_bpm": 46,
+      "deviation": -3,
+      "deviation_bpm": "-3 bpm",
+      "anchors": [
+        {
+          "deviation_bpm": -3,
+          "score": 95,
+          "label": "very_low"
+        },
+        {
+          "deviation_bpm": 0,
+          "score": 75,
+          "label": "baseline"
+        },
+        {
+          "deviation_bpm": 3,
+          "score": 55,
+          "label": "mild_fatigue"
+        },
+        {
+          "deviation_bpm": 6,
+          "score": 30,
+          "label": "fatigue"
+        },
+        {
+          "deviation_bpm": 10,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 95,
+      "zone": "very_low"
+    },
+    "sleep": {
+      "total_seconds": 27900,
+      "deep_seconds": 4980,
+      "rem_seconds": 7800,
+      "awake_count": 0,
+      "garmin_score_used": true,
+      "score": 97,
+      "sub_scores": {}
+    },
+    "readiness": {
+      "original_score": 91,
+      "score": 91,
+      "zone": "GREEN"
+    },
+    "stress": {
+      "stress_level": 14,
+      "anchors": [
+        {
+          "stress_level": 0,
+          "score": 95,
+          "label": "very_low"
+        },
+        {
+          "stress_level": 25,
+          "score": 85,
+          "label": "low"
+        },
+        {
+          "stress_level": 50,
+          "score": 60,
+          "label": "moderate"
+        },
+        {
+          "stress_level": 75,
+          "score": 25,
+          "label": "high"
+        },
+        {
+          "stress_level": 100,
+          "score": 0,
+          "label": "severe"
+        }
+      ],
+      "score": 89,
+      "zone": "low"
+    }
+  },
+  "composite": {
+    "recovery_score": 89,
+    "weights": {
+      "hrv": 0.3,
+      "sleep": 0.25,
+      "rhr": 0.2,
+      "readiness": 0.15,
+      "stress": 0.1
+    },
+    "grade": "A",
+    "label": "状态极佳",
+    "zone": "EXCELLENT",
+    "calculation_steps": [
+      "HRV: 77 x 0.30 = 23.10",
+      "Sleep: 97 x 0.25 = 24.25",
+      "RHR: 95 x 0.20 = 19.00",
+      "Readiness: 91 x 0.15 = 13.65",
+      "Stress: 89 x 0.10 = 8.90",
+      "Total: 88.90 -> 89"
+    ],
+    "formula": "recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10",
+    "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003, [R21] Garmin"
+  },
+  "multi_dimension_validation": {
+    "num_patterns_checked": 5,
+    "patterns_checked": [
+      {
+        "id": "IDEAL_RECOVERY",
+        "label": "理想恢复",
+        "condition_desc": "HRV↑↑ RHR↓→ 睡眠优",
+        "ref": "[R2] Buchheit 2014",
+        "match": true
+      },
+      {
+        "id": "SYMPATHETIC_FATIGUE",
+        "label": "交感疲劳",
+        "condition_desc": "HRV↓↓ RHR↑↑ 睡眠差",
+        "ref": "[R10] Plews 2013",
+        "match": false
+      },
+      {
+        "id": "PARASYMPATHETIC_REBOUND",
+        "label": "副交感反弹",
+        "condition_desc": "HRV↑↑↑ RHR↓↓ 睡眠中",
+        "ref": "[R9] Recovery Tower Spike",
+        "match": false
+      },
+      {
+        "id": "SLEEP_DEBT",
+        "label": "睡眠债务疲劳",
+        "condition_desc": "HRV↓ RHR→ 睡眠差·短",
+        "ref": "[R16] Ohayon 2004",
+        "match": false
+      },
+      {
+        "id": "HIGH_LOAD_ADAPTATION",
+        "label": "高负荷适应",
+        "condition_desc": "HRV↓ RHR↑ 睡眠中",
+        "ref": "[R22] Chalencon 2012",
+        "match": false
+      }
+    ],
+    "num_matched": 1,
+    "matched_patterns": [
+      {
+        "id": "IDEAL_RECOVERY",
+        "label": "理想恢复",
+        "condition_desc": "HRV↑↑ RHR↓→ 睡眠优",
+        "ref": "[R2] Buchheit 2014",
+        "match": true
+      }
+    ]
+  },
+  "trend": {
+    "low_streak": 2,
+    "window_checked": 28,
+    "threshold": 60,
+    "alert": null,
+    "recent_scores_in_window": [
+      77,
+      94,
+      94,
+      94,
+      94,
+      94,
+      75,
+      44,
+      50,
+      69,
+      44,
+      39,
+      63,
+      65,
+      71,
+      92,
+      92,
+      93,
+      75,
+      79,
+      69,
+      97,
+      100,
+      100,
+      60,
+      58,
+      61,
+      91
+    ]
+  },
+  "derived_metrics_summary": {
+    "hrv_pct_change": 0.99,
+    "hrv_ln_change": 0.009877,
+    "rhr_deviation_bpm": -3,
+    "sleep_total_hours": 7.75,
+    "sleep_deep_pct": 17.85,
+    "sleep_rem_pct": 0,
+    "stress_level": 14,
+    "stress_score": 89,
+    "stress_zone": "low",
+    "training_load": null,
+    "acwr_percent": 0,
+    "readiness_score_original": 91
+  }
+};
+
+// 把完整 kpi_today.json 规整成图表所需的局部结构（28d 序列切成 7d）
+function adaptKpi(kpi) {
+  const h = (kpi && kpi.history) || {};
+  const out = Object.assign({}, kpi);
+  out.history = Object.assign({}, h, {
+    sleep_7d: (h.sleep_28d || []).slice(0, 7),
+    readiness_7d: (h.readiness_28d || []).slice(0, 7)
+  });
+  return out;
+}
+
+function showFailure(reason, hint) {
+  const loading = document.getElementById('loading');
+  const app = document.getElementById('app');
+  if (loading) loading.classList.add('hidden');
+  if (!app) return;
+  app.classList.remove('hidden');
+  app.innerHTML =
+    '<div class="fail-screen">' +
+      '<div class="fail-icon">!</div>' +
+      '<h1>数据加载失败</h1>' +
+      '<p class="fail-line">本页面需要有效的诊断数据才能展示，当前未加载到任何数据。</p>' +
+      (hint ? '<p class="fail-line">' + hint + '</p>' : '') +
+      '<p class="fail-reason">失败原因：<span id="failReasonText"></span></p>' +
+    '</div>';
+  const rt = document.getElementById('failReasonText');
+  if (rt) rt.textContent = reason || '未知错误';
+}
+
+// 双模式加载：
+//  · file://（Hermes / 离线 / 无服务）：以内嵌 STATIC_DATA 静态快照为本源数据直接渲染；
+//    不做任何 fetch，也不存在「fetch 失败回退」——内嵌数据即权威快照。
+//  · http(s)://（实时）：fetch kpi_today.json，失败一律走 showFailure，绝不回退内嵌旧数据。
+async function loadData() {
+  const loading = document.getElementById('loading');
+  const app = document.getElementById('app');
+  if (loading) {
+    loading.classList.remove('hidden');
+    loading.innerHTML = '<div class="spinner"></div><p>加载诊断数据...</p>';
+  }
+  if (app) app.classList.add('hidden');
+
+  const fileProto = window.location.protocol === 'file:';
+
+  // ── 模式 A：file:// 静态快照（Hermes / 离线）──
+  if (fileProto) {
+    try {
+      const data = STATIC_DATA;
+      if (!data || typeof data !== 'object') throw new Error('内嵌静态数据缺失');
+      if (!data.history) throw new Error('内嵌静态数据缺少 history 字段');
+      render(adaptKpi(data), 'static');
+    } catch (err) {
+      console.error('static load failed:', err);
+      showFailure(err.message, '内嵌静态快照异常：请重新运行数据生成与「内嵌快照」构建步骤后重试。');
+    }
+    return;
+  }
+
+  // ── 模式 B：http(s):// 实时数据 ──
+  try {
+    const resp = await fetch(getDataUrl(), { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText || ''}`.trim());
+    let data;
+    try {
+      data = await resp.json();
+    } catch (e) {
+      throw new Error('返回内容不是合法 JSON：' + e.message);
+    }
+    if (!data || typeof data !== 'object') throw new Error('返回数据为空或非对象');
+    if (!data.history) throw new Error('数据缺少 history 字段（不是标准 kpi_today.json）');
+    render(adaptKpi(data), 'live');
+  } catch (err) {
+    console.error('loadData failed:', err);
+    showFailure(err.message, '实时数据获取失败。请确认：① rebuild_kpi_today.py 已生成 kpi_today.json；② 通过本地 HTTP 服务访问本页。');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => { initTabs(); loadData(); });
+</script>
+</body>
+</html>
