@@ -181,8 +181,7 @@ GarminAgent/
 │   ├── garmin_cli.py       # CLI 入口
 │   ├── sync_data.py        # 数据同步脚本
 │   ├── sync_health_to_db.py # 健康数据入库
-│   ├── compute_kpis_v4.py  # KPI 计算
-│   ├── compute_all_kpis.py # 全量 KPI
+│   ├── compute_all_kpis.py # 全量 KPI（独立计算器，管线用 rebuild_kpi_today.py）
 │   ├── morning_report.py   # 晨间报告
 │   └── report/             # 报告生成脚本
 ├── tests/                  # 单元测试

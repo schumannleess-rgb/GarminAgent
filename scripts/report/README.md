@@ -16,7 +16,7 @@ dev-pinpaper/
 ## 数据链路
 
 ```
-scripts/compute_kpis_v4.py 或 morning_advisor.py
+scripts/rebuild_kpi_today.py 或 morning_advisor.py
          ↓ 生成
   output/kpi_today.json              ← 数据源头
          ↓
