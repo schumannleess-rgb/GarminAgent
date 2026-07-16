@@ -160,6 +160,40 @@ python scripts/garmin_cli.py capacity    # 训练能力
 
 ---
 
+## 每日恢复力报告
+
+除对话式查询外，本项目还能**离线生成每日恢复力诊断报告**：基于 Garmin 睡眠 / HRV / RHR / 训练准备度等数据，输出综合恢复分、28 天趋势、数据缺口与分维度建议。报告为静态 HTML，双击即可在浏览器（含 Hermes 等无服务环境）离线查看。
+
+### 交付物（5 个 HTML）
+
+| 文件 | 角色 |
+|------|------|
+| `output/html/recovery_standard.html` | 标准版（手工维护的基准，深度诊断） |
+| `output/html/recovery_data.html` | 数字版（全字段纯数据页） |
+| `output/html/recovery_pin_paper.html` | 风格 1：pin & paper |
+| `output/html/recovery_zine.html` | 风格 2：zine / Retro |
+| `output/html/recovery_swiss.html` | 风格 3：Swiss deck（PPT 风） |
+
+### 生成命令链
+
+```bash
+# 数据源：.local/data/daily_health.json（不提交）→ output/kpi_today.json（权威，不提交）
+GARMIN_OUTPUT_DIR=output python scripts/rebuild_kpi_today.py
+python scripts/gen_trend_data_view.py
+python scripts/variants/pin_paper/build.py
+python scripts/variants/zine/build.py
+python scripts/variants/recovery_deck/build.py
+node scripts/verify_deliverables.js   # 自检：5 交付物数据是否准确
+```
+
+### 数据契约与运维
+
+- 权威数据契约：`docs/KPI_DATA_CONTRACT.md`
+- 每日产出操作手册（命令链 / 坑 / 交付物 / 自检）：`docs/DAILY_OUTPUT_RUNBOOK.md`
+- 风格变体注册表：`scripts/variants/MANIFEST.md`
+
+---
+
 ## 目录结构
 
 ```
@@ -180,12 +214,24 @@ GarminAgent/
 ├── scripts/
 │   ├── garmin_cli.py       # CLI 入口
 │   ├── sync_data.py        # 数据同步脚本
-│   ├── sync_health_to_db.py # 健康数据入库
-│   ├── compute_all_kpis.py # 全量 KPI（独立计算器，管线用 rebuild_kpi_today.py）
+│   ├── rebuild_kpi_today.py # 每日 KPI 重建（报告流水线入口，自带计算逻辑）
+│   ├── gen_trend_data_view.py # 生成数字版交付物 recovery_data.html
+│   ├── compute_all_kpis.py # 独立全量 KPI 计算器（参考用，非管线依赖）
+│   ├── verify_deliverables.js # 交付物数据自检（5 HTML 准确性）
+│   ├── ppt_common.py       # Swiss deck 共享内容层
 │   ├── morning_report.py   # 晨间报告
+│   ├── variants/           # 报告风格变体
+│   │   ├── pin_paper/      # 风格1 生成器 + 测试
+│   │   ├── zine/           # 风格2 生成器
+│   │   ├── recovery_deck/  # 风格3 (Swiss) 生成器
+│   │   ├── archive/        # 已归档变体（morning-card 等）
+│   │   └── MANIFEST.md     # 变体注册表
 │   └── report/             # 报告生成脚本
 ├── tests/                  # 单元测试
-├── docs/                   # 文档
+├── docs/
+│   ├── DAILY_OUTPUT_RUNBOOK.md # 每日产出操作手册
+│   ├── KPI_DATA_CONTRACT.md    # 报告数据契约
+│   └── （其他设计 / 规格文档）
 ├── main.py                 # 入口（交互式）
 ├── setup.py                # 构建脚本
 ├── requirements.txt        # 依赖
