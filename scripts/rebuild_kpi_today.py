@@ -43,7 +43,10 @@ def _segments(anchors):
         segs.append({"p_min":p1,"p_max":p2,"score_at_min":s1,"slope":(s2-s1)/(p2-p1),"zone":l2})
     return segs
 
-_HRV_SEGS = _segments(HRV_ANCHORS); _RHR_SEGS = _segments(RHR_ANCHORS); _STRESS_SEGS = _segments(_STRESS_ANCHORS)
+# HRV_ANCHORS 是降序(p 从高到低),_segments 需升序才能生成有效分段;
+# 排序后用升序副本建分段,否则正区间分段 p_min>p_max 永不命中 -> 兜底 score=0。
+_HRV_SEGS = _segments(sorted(HRV_ANCHORS, key=lambda a: a[0]))
+_RHR_SEGS = _segments(RHR_ANCHORS); _STRESS_SEGS = _segments(_STRESS_ANCHORS)
 
 def score_hrv(last_night, weekly):
     r = {"last_night_ms":last_night,"weekly_avg_ms":weekly,"fallback_used":False,
@@ -60,6 +63,9 @@ def score_hrv(last_night, weekly):
             if seg["p_min"]<=p<=seg["p_max"]:
                 s=seg["score_at_min"]+(p-seg["p_min"])*seg["slope"]; z=seg["zone"]; break
         else: s,z = 0,"SEVERE"
+    # 0.05<p<0.10 落在 (0.05->0.10) 分段, zone 取自上锚 spike, 实为健康高位, 纠回 green_high
+    if z == "spike" and p <= HRV_ANCHORS[0][0]:
+        z = "green_high"
     r["score"]=round(min(100,max(0,s))); r["zone"]=z; return r
 
 def score_rhr(current, baseline):
