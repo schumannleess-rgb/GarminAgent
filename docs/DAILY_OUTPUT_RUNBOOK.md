@@ -96,14 +96,14 @@ python scripts/variants/recovery_deck/build.py      # → output/html/recovery_s
 
 ```
 scripts/variants/
-  pin-paper/
+  pin_paper/
     src.html            # 源模板（STATIC_DATA 占位 + 双模式加载）
     build.py            # 读 output/kpi_today.json → 注入 → 写 output/html/recovery_pin_paper.html
     tests/test_build.py # 校验：输出存在 / 数据同步 / 双模式
     README.md
   zine/
     build.py            # 自包含（模板内嵌），写 output/html/recovery_zine.html
-  recovery-deck/
+  recovery_deck/
     build.py            # Swiss 皮肤生成器；依赖 scripts/ppt_common.py（共享内容层：数据/叙事/SVG/组装）
     # 注：ppt_common.py 留在 scripts/ 级别，跨 deck 皮肤共享，不随变体移动
 ```
