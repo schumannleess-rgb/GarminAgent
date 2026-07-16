@@ -1,34 +1,4 @@
-#!/usr/bin/env python3
-"""
-build.py — 从 kpi_today.json 生成 wellness_zine.html
-
-流程:
-    1. 读取 output/kpi_today.json
-    2. 提取 FALLBACK 数据（与 JSON 完全对齐，不再手写硬编码）
-    3. 写入 output/html/wellness_zine.html
-
-用法:
-    python scripts/variants/zine/build.py
-    python scripts/variants/zine/build.py --output path/to/output.html  # 自定义输出路径
-
-前置条件:
-    output/kpi_today.json 必须存在（由 rebuild_kpi_today.py 或 merge_kpi.py 生成）
-"""
-
-import json
-import argparse
-import sys
-from datetime import datetime
-from pathlib import Path
-
-# __file__ = <PROJECT_ROOT>/scripts/variants/zine/build.py  → parents[3] = GarminAgent 根
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-# ── Zine 模板 ──────────────────────────────────────────────────────────────
-# 这是定稿的 wellness_zine.html 骨架，从 HTML 提取后固化到这里。
-# 数据占位符用 {{KEY}} 语法，渲染时替换。
-
-ZINE_TEMPLATE = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -596,11 +566,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
   <!-- ===== 01 首页 ===== -->
   <section class="slide" id="slide-1">
     <div class="hero-edition">健康版</div>
-    <div><span class="stamp-mark green" id="heroGrade">{{GRADE}}</span></div>
+    <div><span class="stamp-mark green" id="heroGrade">A</span></div>
     <h1 class="hero-title">每日<br>健康<br>手账</h1>
     <div class="hero-subtitle">每日健康报告</div>
-    <div class="hero-grade" id="heroScore">{{SCORE}}</div>
-    <div class="hero-date" id="heroDate">{{DATE_ZH}}</div>
+    <div class="hero-grade" id="heroScore">89</div>
+    <div class="hero-date" id="heroDate">2026年7月16日</div>
     <div id="dataSourceBadge" style="margin-top:10px; display:none;">
       <span class="stamp-mark" style="font-size:0.65rem;">演示数据</span>
     </div>
@@ -618,11 +588,11 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
         <canvas id="scoreRing" width="300" height="300"></canvas>
       </div>
       <div style="display:flex; flex-direction:column; gap:var(--gap); justify-content:center;">
-        <p class="daily-msg drop-cap" id="dailyMessage">{{DAILY_MSG}}</p>
-        <div style="text-align:center;"><span class="stamp-mark" id="scoreStamp">{{SCORE_STAMP}}</span></div>
+        <p class="daily-msg drop-cap" id="dailyMessage">今日健康分数为 <strong>89</strong>。您的身体正在良好恢复。保持节奏。</p>
+        <div style="text-align:center;"><span class="stamp-mark" id="scoreStamp">状态良好</span></div>
         <div class="statement-mini">
-          <div class="statement-mini-quote" id="statementQuote">{{STATEMENT_QUOTE}}</div>
-          <div class="statement-mini-attr" id="statementAttr">{{STATEMENT_ATTR}}</div>
+          <div class="statement-mini-quote" id="statementQuote">恢复分数 89（优秀）。身体状态优秀，继续保持良好习惯。</div>
+          <div class="statement-mini-attr" id="statementAttr">每日健康报告，2026-07-16</div>
         </div>
       </div>
     </div>
@@ -640,68 +610,68 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       <div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-label">HRV</div>
-          <span class="kpi-score-tag" id="hrvTag">{{HRV_TAG}}</span>
+          <span class="kpi-score-tag" id="hrvTag">分数：77</span>
         </div>
-        <div class="kpi-value" id="hrvValue">{{HRV_VALUE}}</div>
+        <div class="kpi-value" id="hrvValue">73</div>
         <div class="kpi-unit">毫秒</div>
-        <div class="kpi-delta" id="hrvDelta">{{HRV_DELTA}}</div>
-        <div class="kpi-formula" id="hrvFormula">{{HRV_FORMULA}}</div>
-        <div class="kpi-detail" id="hrvDetail">{{HRV_DETAIL}}</div>
+        <div class="kpi-delta" id="hrvDelta">+0.99%（较基准）</div>
+        <div class="kpi-formula" id="hrvFormula">rolling_mean(last_7_nights_HRV), Plews 2014 [R7]...</div>
+        <div class="kpi-detail" id="hrvDetail">心率变异性 73ms，基准 70ms。变化 +0.99%。副交感神经张力良好，恢复能力提升。</div>
       </div>
       <!-- RHR -->
       <div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-label">RHR</div>
-          <span class="kpi-score-tag" id="rhrTag">{{RHR_TAG}}</span>
+          <span class="kpi-score-tag" id="rhrTag">分数：95</span>
         </div>
-        <div class="kpi-value" id="rhrValue">{{RHR_VALUE}}</div>
+        <div class="kpi-value" id="rhrValue">43</div>
         <div class="kpi-unit">次/分</div>
-        <div class="kpi-delta" id="rhrDelta">{{RHR_DELTA}}</div>
-        <div class="kpi-formula" id="rhrFormula">{{RHR_FORMULA}}</div>
-        <div class="kpi-detail" id="rhrDetail">{{RHR_DETAIL}}</div>
+        <div class="kpi-delta" id="rhrDelta">-3（较基准）</div>
+        <div class="kpi-formula" id="rhrFormula">rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]...</div>
+        <div class="kpi-detail" id="rhrDetail">静息心率 43 次/分，基准 46 次/分（偏差 -3 次/分）。心血管效率优秀，恢复状态佳。</div>
       </div>
       <!-- SLEEP -->
       <div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-label">SLEEP</div>
-          <span class="kpi-score-tag" id="sleepTag">{{SLEEP_TAG}}</span>
+          <span class="kpi-score-tag" id="sleepTag">睡眠分数：97</span>
         </div>
-        <div class="kpi-value" id="sleepValue">{{SLEEP_VALUE}}</div>
+        <div class="kpi-value" id="sleepValue">7.75</div>
         <div class="kpi-unit">小时</div>
-        <div class="kpi-delta" id="sleepDelta">{{SLEEP_DELTA}}</div>
-        <div class="kpi-formula" id="sleepFormula">{{SLEEP_FORMULA}}</div>
+        <div class="kpi-delta" id="sleepDelta">分数：97/100</div>
+        <div class="kpi-formula" id="sleepFormula">rolling_mean(last_7_days_total_sleep), Ohayon 2004 [R16]...</div>
         <div class="sleep-mini-bar">
-          <div class="sleep-mini-seg sleep-mini-deep" id="sleepDeepPct">{{SLEEP_DEEP_PCT}}</div>
-          <div class="sleep-mini-seg sleep-mini-rem" id="sleepRemPct">{{SLEEP_REM_PCT}}</div>
-          <div class="sleep-mini-seg sleep-mini-awake" id="sleepAwake">{{SLEEP_AWAKE}}</div>
+          <div class="sleep-mini-seg sleep-mini-deep" id="sleepDeepPct">18%</div>
+          <div class="sleep-mini-seg sleep-mini-rem" id="sleepRemPct">28%</div>
+          <div class="sleep-mini-seg sleep-mini-awake" id="sleepAwake">0次</div>
         </div>
         <div class="kpi-detail">
-          深睡 <strong id="sleepDeepTime">{{SLEEP_DEEP_TIME}}</strong> 小时 | REM <strong id="sleepRemTime">{{SLEEP_REM_TIME}}</strong> 小时 | 清醒 <strong id="sleepAwakeCount">{{SLEEP_AWAKE_COUNT}}</strong> 次
+          深睡 <strong id="sleepDeepTime">1.38</strong> 小时 | REM <strong id="sleepRemTime">2.17</strong> 小时 | 清醒 <strong id="sleepAwakeCount">0</strong> 次
         </div>
       </div>
       <!-- READINESS -->
       <div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-label">READINESS</div>
-          <span class="kpi-score-tag" id="readyTag">{{READY_TAG}}</span>
+          <span class="kpi-score-tag" id="readyTag">准备度：91</span>
         </div>
-        <div class="kpi-value" id="readyValue">{{READY_VALUE}}</div>
+        <div class="kpi-value" id="readyValue">91</div>
         <div class="kpi-unit">/ 100</div>
-        <div class="kpi-delta" id="readyDelta">{{READY_DELTA}}</div>
-        <div class="kpi-formula" id="readyFormula">{{READY_FORMULA}}</div>
-        <div class="kpi-detail" id="readyDetail">{{READY_DETAIL}}</div>
+        <div class="kpi-delta" id="readyDelta">准备度高</div>
+        <div class="kpi-formula" id="readyFormula">recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10...</div>
+        <div class="kpi-detail" id="readyDetail">HRV: 77 x 0.30 = 23.10; Sleep: 97 x 0.25 = 24.25; RHR: 95 x 0.20 = 19.00; Readiness: 91 x 0.15 = 13.65; Stress: 89 x 0.10 = 8.90; Total: 88.90 -> 89。总分：89</div>
       </div>
       <!-- STRESS -->
       <div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-label">STRESS</div>
-          <span class="kpi-score-tag" id="stressTag">{{STRESS_TAG}}</span>
+          <span class="kpi-score-tag" id="stressTag">分数：89</span>
         </div>
-        <div class="kpi-value" id="stressValue">{{STRESS_VALUE}}</div>
+        <div class="kpi-value" id="stressValue">14</div>
         <div class="kpi-unit">压力水平</div>
-        <div class="kpi-delta" id="stressDelta">{{STRESS_DELTA}}</div>
-        <div class="kpi-formula" id="stressFormula">{{STRESS_FORMULA}}</div>
-        <div class="kpi-detail" id="stressDetail">{{STRESS_DETAIL}}</div>
+        <div class="kpi-delta" id="stressDelta">压力低</div>
+        <div class="kpi-formula" id="stressFormula">Stress = Garmin 全天平均压力指数 (0-100)。0-25 为低压力，25-50 为中等，>50 为高压力。</div>
+        <div class="kpi-detail" id="stressDetail">平均压力水平 14，处于low区间。压力管理良好，恢复状态佳。</div>
       </div>
     </div>
   </section>
@@ -716,7 +686,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     <div class="charts-stack">
       <div class="chart-box">
         <div class="chart-box-title">恢复趋势</div>
-        <div class="chart-box-sub" id="trendSub">{{TREND_SUB}}</div>
+        <div class="chart-box-sub" id="trendSub">7日恢复趋势 — 2026-07-16</div>
         <canvas id="trendChart" width="800" height="180"></canvas>
       </div>
       <div class="chart-box">
@@ -731,7 +701,7 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       </div>
       <div class="chart-box">
         <div class="chart-box-title">准备度趋势</div>
-        <div class="chart-box-sub" id="readySub">{{READY_SUB}}</div>
+        <div class="chart-box-sub" id="readySub">准备度7日趋势 — 2026-07-16</div>
         <canvas id="readyChart" width="800" height="150"></canvas>
       </div>
     </div>
@@ -747,22 +717,22 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     <div class="analysis-grid">
       <div class="analysis-card">
         <h3>心率变异性</h3>
-        <div class="formula-box" id="hrvFormulaBox">{{HRV_FORMULA_BOX}}</div>
-        <p class="analysis-text" id="hrvAnalysisText">{{HRV_ANALYSIS_TEXT}}</p>
+        <div class="formula-box" id="hrvFormulaBox">rolling_mean(last_7_nights_HRV), Plews 2014 [R7]</div>
+        <p class="analysis-text" id="hrvAnalysisText">心率变异性 73ms，基准 70ms。变化 +0.99%。副交感神经张力良好，恢复能力提升。</p>
         <div class="analysis-score">
-          <span class="score-chip" id="hrvScoreChip">{{HRV_SCORE_CHIP}}</span>
-          <span class="score-chip" id="hrvBaseChip">{{HRV_BASE_CHIP}}</span>
-          <span class="score-chip" id="hrvDevChip">{{HRV_DEV_CHIP}}</span>
+          <span class="score-chip" id="hrvScoreChip">分数：77</span>
+          <span class="score-chip" id="hrvBaseChip">基准：70ms</span>
+          <span class="score-chip" id="hrvDevChip">偏差：+0.99%</span>
         </div>
       </div>
       <div class="analysis-card">
         <h3>静息心率</h3>
-        <div class="formula-box" id="rhrFormulaBox">{{RHR_FORMULA_BOX}}</div>
-        <p class="analysis-text" id="rhrAnalysisText">{{RHR_ANALYSIS_TEXT}}</p>
+        <div class="formula-box" id="rhrFormulaBox">rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]</div>
+        <p class="analysis-text" id="rhrAnalysisText">静息心率 43 次/分，基准 46 次/分（偏差 -3 次/分）。心血管效率优秀，恢复状态佳。</p>
         <div class="analysis-score">
-          <span class="score-chip" id="rhrScoreChip">{{RHR_SCORE_CHIP}}</span>
-          <span class="score-chip" id="rhrBaseChip">{{RHR_BASE_CHIP}}</span>
-          <span class="score-chip" id="rhrDevChip">{{RHR_DEV_CHIP}}</span>
+          <span class="score-chip" id="rhrScoreChip">分数：95</span>
+          <span class="score-chip" id="rhrBaseChip">基准：46次/分</span>
+          <span class="score-chip" id="rhrDevChip">偏差：-3次/分</span>
         </div>
       </div>
     </div>
@@ -779,30 +749,35 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
       <div class="insight-card">
         <h3>睡眠构成</h3>
         <div class="sleep-mini-bar">
-          <div class="sleep-mini-seg sleep-mini-deep" id="detailDeepPct">{{DETAIL_DEEP_PCT}}</div>
-          <div class="sleep-mini-seg sleep-mini-rem" id="detailRemPct">{{DETAIL_REM_PCT}}</div>
-          <div class="sleep-mini-seg sleep-mini-awake" id="detailAwake">{{DETAIL_AWAKE}}</div>
+          <div class="sleep-mini-seg sleep-mini-deep" id="detailDeepPct">18%</div>
+          <div class="sleep-mini-seg sleep-mini-rem" id="detailRemPct">28%</div>
+          <div class="sleep-mini-seg sleep-mini-awake" id="detailAwake">0次</div>
         </div>
         <div class="kpi-detail" style="margin-top:10px;">
-          总睡眠 <strong id="detailTotal">{{DETAIL_TOTAL}}</strong> 小时 |
-          深睡 <strong id="detailDeepTime">{{DETAIL_DEEP_TIME}}</strong> 小时 |
-          REM <strong id="detailRemTime">{{DETAIL_REM_TIME}}</strong> 小时 |
-          清醒 <strong id="detailAwakeCount">{{DETAIL_AWAKE_COUNT}}</strong> 次
+          总睡眠 <strong id="detailTotal">7.8</strong> 小时 |
+          深睡 <strong id="detailDeepTime">1.38</strong> 小时 |
+          REM <strong id="detailRemTime">2.17</strong> 小时 |
+          清醒 <strong id="detailAwakeCount">0</strong> 次
         </div>
         <div style="margin-top:10px;">
-          <span class="stamp-mark green" id="detailSleepTag">{{DETAIL_SLEEP_TAG}}</span>
+          <span class="stamp-mark green" id="detailSleepTag">睡眠分数：97</span>
         </div>
       </div>
       <div class="insight-card">
         <h3>模式匹配</h3>
         <div id="patternList">
-          {{PATTERN_LIST}}
+          <div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>心率变异性呈上升趋势，恢复状态良好</span></div>
+          <div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>静息心率低于基准 3 次/分，心肺功能改善</span></div>
+          <div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>睡眠分数 97，睡眠质量优秀</span></div>
+          <div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>准备度分数高，可承受训练压力</span></div>
         </div>
       </div>
       <div class="insight-card" style="grid-column: 1 / -1;">
         <h3>今日建议</h3>
         <ul class="advice-list" id="adviceList">
-          {{ADVICE_LIST}}
+          <li>睡眠时长达标，继续保持规律作息</li>
+          <li>静息心率表现优秀，可安排中高强度训练</li>
+          <li>保持规律作息，适度运动，持续关注健康数据</li>
         </ul>
       </div>
     </div>
@@ -828,7 +803,1447 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
        · file://（离线 / Hermes）：直接作为本源渲染，不做 fetch。
        · http(s)://（实时）：fetch 实时数据，失败一律走 showFailure，绝不回退内嵌旧数据。
        ============================================ */
-    const STATIC_DATA = {{STATIC_DATA_JS}};
+    const STATIC_DATA = {
+  'date': '2026-07-16',
+  'generated_at': '2026-07-16 00:00:00',
+  'engine_version': '2.0',
+  'design_doc': 'docs/design-morning-advisor.md',
+  'references_count': 24,
+  'data_source': 'local_db ()',
+  'latest_db_date': '2026-07-16',
+  'raw_inputs': {
+    'hrv': {
+      'last_night': 73,
+      'weekly_avg': 68,
+      'status': 'BALANCED',
+    },
+    'rhr': {
+      'current_bpm': 43,
+    },
+    'sleep': {
+      'total_seconds': 27900,
+      'deep_seconds': 4980,
+      'rem_seconds': 7800,
+      'awake_count': 0,
+      'garmin_sleep_score': 97,
+    },
+    'readiness': {
+      'score': 91,
+      'level': 'HIGH',
+    },
+    'profile': {
+      'vo2max': '',
+      'bmi': null,
+      'device': 'Forerunner 955 Solar',
+      'fitness_age': '',
+      'chronological_age': '',
+      'training_status_phrase': 'RECOVERY',
+      'acwr_percent': 0,
+      'total_steps': null,
+      'total_distance_m': null,
+      'active_calories': null,
+      'avg_stress': 14,
+      'max_stress': 84,
+      'min_hr': null,
+      'max_hr': null,
+      'body_battery_charged': null,
+      'body_battery_drained': null,
+      'avg_spo2': null,
+    },
+    'race_predictions': {
+    },
+    'stress_raw': {
+      'avg_stress_level': 14,
+      'max_stress_level': 84,
+    },
+  },
+  'history': {
+    'hrv_14d': [
+      {
+        'date': '2026-07-16',
+        'value': 73,
+      },
+      {
+        'date': '2026-07-14',
+        'value': 52,
+      },
+      {
+        'date': '2026-07-13',
+        'value': 75,
+      },
+      {
+        'date': '2026-07-12',
+        'value': 66,
+      },
+      {
+        'date': '2026-07-11',
+        'value': 80,
+      },
+      {
+        'date': '2026-07-10',
+        'value': 67,
+      },
+      {
+        'date': '2026-07-08',
+        'value': 61,
+      },
+      {
+        'date': '2026-07-06',
+        'value': 59,
+      },
+      {
+        'date': '2026-07-05',
+        'value': 76,
+      },
+      {
+        'date': '2026-07-04',
+        'value': 81,
+      },
+      {
+        'date': '2026-07-03',
+        'value': 69,
+      },
+      {
+        'date': '2026-07-02',
+        'value': 89,
+      },
+      {
+        'date': '2026-07-01',
+        'value': 67,
+      },
+      {
+        'date': '2026-06-29',
+        'value': 64,
+      }
+    ],
+    'rhr_28d': [
+      {
+        'date': '2026-07-16',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-14',
+        'value': 47,
+      },
+      {
+        'date': '2026-07-13',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-12',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-11',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-10',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-09',
+        'value': 46,
+      },
+      {
+        'date': '2026-07-08',
+        'value': 44,
+      },
+      {
+        'date': '2026-07-07',
+        'value': 45,
+      },
+      {
+        'date': '2026-07-06',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-05',
+        'value': 40,
+      },
+      {
+        'date': '2026-07-04',
+        'value': 39,
+      },
+      {
+        'date': '2026-07-03',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-02',
+        'value': 41,
+      },
+      {
+        'date': '2026-07-01',
+        'value': 43,
+      },
+      {
+        'date': '2026-06-30',
+        'value': 74,
+      },
+      {
+        'date': '2026-06-29',
+        'value': 42,
+      },
+      {
+        'date': '2026-06-28',
+        'value': 71,
+      },
+      {
+        'date': '2026-06-27',
+        'value': 72,
+      },
+      {
+        'date': '2026-06-26',
+        'value': 46,
+      },
+      {
+        'date': '2026-06-25',
+        'value': 47,
+      },
+      {
+        'date': '2026-06-18',
+        'value': 45,
+      },
+      {
+        'date': '2026-06-17',
+        'value': 45,
+      },
+      {
+        'date': '2026-06-16',
+        'value': 42,
+      },
+      {
+        'date': '2026-06-15',
+        'value': 44,
+      },
+      {
+        'date': '2026-06-14',
+        'value': 41,
+      },
+      {
+        'date': '2026-06-12',
+        'value': 43,
+      },
+      {
+        'date': '2026-06-11',
+        'value': 46,
+      }
+    ],
+    'sleep_28d': [
+      {
+        'date': '2026-07-16',
+        'total_sec': 27900,
+        'deep_sec': 4980,
+      },
+      {
+        'date': '2026-07-14',
+        'total_sec': 20134,
+        'deep_sec': 6480,
+      },
+      {
+        'date': '2026-07-13',
+        'total_sec': 21900,
+        'deep_sec': 6240,
+      },
+      {
+        'date': '2026-07-12',
+        'total_sec': 27720,
+        'deep_sec': 4860,
+      },
+      {
+        'date': '2026-07-11',
+        'total_sec': 27151,
+        'deep_sec': 4440,
+      },
+      {
+        'date': '2026-07-10',
+        'total_sec': 32580,
+        'deep_sec': 4740,
+      },
+      {
+        'date': '2026-07-08',
+        'total_sec': 30780,
+        'deep_sec': 6300,
+      },
+      {
+        'date': '2026-07-06',
+        'total_sec': 31248,
+        'deep_sec': 6480,
+      },
+      {
+        'date': '2026-07-05',
+        'total_sec': 25980,
+        'deep_sec': 7380,
+      },
+      {
+        'date': '2026-07-04',
+        'total_sec': 32880,
+        'deep_sec': 9420,
+      },
+      {
+        'date': '2026-07-03',
+        'total_sec': 25860,
+        'deep_sec': 8820,
+      },
+      {
+        'date': '2026-07-02',
+        'total_sec': 19200,
+        'deep_sec': 5220,
+      },
+      {
+        'date': '2026-07-01',
+        'total_sec': 22380,
+        'deep_sec': 4020,
+      },
+      {
+        'date': '2026-06-29',
+        'total_sec': 15300,
+        'deep_sec': 6540,
+      },
+      {
+        'date': '2026-06-26',
+        'total_sec': 17580,
+        'deep_sec': 7980,
+      }
+    ],
+    'readiness_28d': [
+      {
+        'date': '2026-07-16',
+        'score': 91,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-15',
+        'score': 61,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-14',
+        'score': 58,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-13',
+        'score': 60,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-12',
+        'score': 100,
+        'level': 'PRIME',
+      },
+      {
+        'date': '2026-07-11',
+        'score': 100,
+        'level': 'PRIME',
+      },
+      {
+        'date': '2026-07-10',
+        'score': 97,
+        'level': 'PRIME',
+      },
+      {
+        'date': '2026-07-09',
+        'score': 69,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-08',
+        'score': 79,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-07',
+        'score': 75,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-06',
+        'score': 93,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-05',
+        'score': 92,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-04',
+        'score': 92,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-07-03',
+        'score': 71,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-02',
+        'score': 65,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-07-01',
+        'score': 63,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-06-30',
+        'score': 39,
+        'level': 'LOW',
+      },
+      {
+        'date': '2026-06-29',
+        'score': 44,
+        'level': 'LOW',
+      },
+      {
+        'date': '2026-06-28',
+        'score': 69,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-06-27',
+        'score': 50,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-06-26',
+        'score': 44,
+        'level': 'LOW',
+      },
+      {
+        'date': '2026-06-25',
+        'score': 75,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-24',
+        'score': 94,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-23',
+        'score': 94,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-22',
+        'score': 94,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-21',
+        'score': 94,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-20',
+        'score': 94,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-19',
+        'score': 77,
+        'level': 'HIGH',
+      },
+      {
+        'date': '2026-06-18',
+        'score': 74,
+        'level': 'MODERATE',
+      },
+      {
+        'date': '2026-06-17',
+        'score': 75,
+        'level': 'HIGH',
+      }
+    ],
+    'hrv_cal_28d': [
+      {
+        'date': '2026-06-19',
+        'value': null,
+      },
+      {
+        'date': '2026-06-20',
+        'value': null,
+      },
+      {
+        'date': '2026-06-21',
+        'value': null,
+      },
+      {
+        'date': '2026-06-22',
+        'value': null,
+      },
+      {
+        'date': '2026-06-23',
+        'value': null,
+      },
+      {
+        'date': '2026-06-24',
+        'value': null,
+      },
+      {
+        'date': '2026-06-25',
+        'value': null,
+      },
+      {
+        'date': '2026-06-26',
+        'value': 59,
+      },
+      {
+        'date': '2026-06-27',
+        'value': null,
+      },
+      {
+        'date': '2026-06-28',
+        'value': null,
+      },
+      {
+        'date': '2026-06-29',
+        'value': 64,
+      },
+      {
+        'date': '2026-06-30',
+        'value': null,
+      },
+      {
+        'date': '2026-07-01',
+        'value': 67,
+      },
+      {
+        'date': '2026-07-02',
+        'value': 89,
+      },
+      {
+        'date': '2026-07-03',
+        'value': 69,
+      },
+      {
+        'date': '2026-07-04',
+        'value': 81,
+      },
+      {
+        'date': '2026-07-05',
+        'value': 76,
+      },
+      {
+        'date': '2026-07-06',
+        'value': 59,
+      },
+      {
+        'date': '2026-07-07',
+        'value': null,
+      },
+      {
+        'date': '2026-07-08',
+        'value': 61,
+      },
+      {
+        'date': '2026-07-09',
+        'value': null,
+      },
+      {
+        'date': '2026-07-10',
+        'value': 67,
+      },
+      {
+        'date': '2026-07-11',
+        'value': 80,
+      },
+      {
+        'date': '2026-07-12',
+        'value': 66,
+      },
+      {
+        'date': '2026-07-13',
+        'value': 75,
+      },
+      {
+        'date': '2026-07-14',
+        'value': 52,
+      },
+      {
+        'date': '2026-07-15',
+        'value': null,
+      },
+      {
+        'date': '2026-07-16',
+        'value': 73,
+      }
+    ],
+    'rhr_cal_28d': [
+      {
+        'date': '2026-06-19',
+        'value': null,
+      },
+      {
+        'date': '2026-06-20',
+        'value': null,
+      },
+      {
+        'date': '2026-06-21',
+        'value': null,
+      },
+      {
+        'date': '2026-06-22',
+        'value': null,
+      },
+      {
+        'date': '2026-06-23',
+        'value': null,
+      },
+      {
+        'date': '2026-06-24',
+        'value': null,
+      },
+      {
+        'date': '2026-06-25',
+        'value': 47,
+      },
+      {
+        'date': '2026-06-26',
+        'value': 46,
+      },
+      {
+        'date': '2026-06-27',
+        'value': 72,
+      },
+      {
+        'date': '2026-06-28',
+        'value': 71,
+      },
+      {
+        'date': '2026-06-29',
+        'value': 42,
+      },
+      {
+        'date': '2026-06-30',
+        'value': 74,
+      },
+      {
+        'date': '2026-07-01',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-02',
+        'value': 41,
+      },
+      {
+        'date': '2026-07-03',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-04',
+        'value': 39,
+      },
+      {
+        'date': '2026-07-05',
+        'value': 40,
+      },
+      {
+        'date': '2026-07-06',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-07',
+        'value': 45,
+      },
+      {
+        'date': '2026-07-08',
+        'value': 44,
+      },
+      {
+        'date': '2026-07-09',
+        'value': 46,
+      },
+      {
+        'date': '2026-07-10',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-11',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-12',
+        'value': 42,
+      },
+      {
+        'date': '2026-07-13',
+        'value': 43,
+      },
+      {
+        'date': '2026-07-14',
+        'value': 47,
+      },
+      {
+        'date': '2026-07-15',
+        'value': null,
+      },
+      {
+        'date': '2026-07-16',
+        'value': 43,
+      }
+    ],
+    'sleep_cal_28d': [
+      {
+        'date': '2026-06-19',
+        'value': null,
+      },
+      {
+        'date': '2026-06-20',
+        'value': null,
+      },
+      {
+        'date': '2026-06-21',
+        'value': null,
+      },
+      {
+        'date': '2026-06-22',
+        'value': null,
+      },
+      {
+        'date': '2026-06-23',
+        'value': null,
+      },
+      {
+        'date': '2026-06-24',
+        'value': null,
+      },
+      {
+        'date': '2026-06-25',
+        'value': null,
+      },
+      {
+        'date': '2026-06-26',
+        'value': {
+          'total_sec': 17580,
+          'deep_sec': 7980,
+          'garmin_score': 65,
+        },
+      },
+      {
+        'date': '2026-06-27',
+        'value': null,
+      },
+      {
+        'date': '2026-06-28',
+        'value': null,
+      },
+      {
+        'date': '2026-06-29',
+        'value': {
+          'total_sec': 15300,
+          'deep_sec': 6540,
+          'garmin_score': 58,
+        },
+      },
+      {
+        'date': '2026-06-30',
+        'value': null,
+      },
+      {
+        'date': '2026-07-01',
+        'value': {
+          'total_sec': 22380,
+          'deep_sec': 4020,
+          'garmin_score': 78,
+        },
+      },
+      {
+        'date': '2026-07-02',
+        'value': {
+          'total_sec': 19200,
+          'deep_sec': 5220,
+          'garmin_score': 69,
+        },
+      },
+      {
+        'date': '2026-07-03',
+        'value': {
+          'total_sec': 25860,
+          'deep_sec': 8820,
+          'garmin_score': 81,
+        },
+      },
+      {
+        'date': '2026-07-04',
+        'value': {
+          'total_sec': 32880,
+          'deep_sec': 9420,
+          'garmin_score': 95,
+        },
+      },
+      {
+        'date': '2026-07-05',
+        'value': {
+          'total_sec': 25980,
+          'deep_sec': 7380,
+          'garmin_score': 87,
+        },
+      },
+      {
+        'date': '2026-07-06',
+        'value': {
+          'total_sec': 31248,
+          'deep_sec': 6480,
+          'garmin_score': 92,
+        },
+      },
+      {
+        'date': '2026-07-07',
+        'value': null,
+      },
+      {
+        'date': '2026-07-08',
+        'value': {
+          'total_sec': 30780,
+          'deep_sec': 6300,
+          'garmin_score': 83,
+        },
+      },
+      {
+        'date': '2026-07-09',
+        'value': null,
+      },
+      {
+        'date': '2026-07-10',
+        'value': {
+          'total_sec': 32580,
+          'deep_sec': 4740,
+          'garmin_score': 88,
+        },
+      },
+      {
+        'date': '2026-07-11',
+        'value': {
+          'total_sec': 27151,
+          'deep_sec': 4440,
+          'garmin_score': 89,
+        },
+      },
+      {
+        'date': '2026-07-12',
+        'value': {
+          'total_sec': 27720,
+          'deep_sec': 4860,
+          'garmin_score': 87,
+        },
+      },
+      {
+        'date': '2026-07-13',
+        'value': {
+          'total_sec': 21900,
+          'deep_sec': 6240,
+          'garmin_score': 80,
+        },
+      },
+      {
+        'date': '2026-07-14',
+        'value': {
+          'total_sec': 20134,
+          'deep_sec': 6480,
+          'garmin_score': 72,
+        },
+      },
+      {
+        'date': '2026-07-15',
+        'value': null,
+      },
+      {
+        'date': '2026-07-16',
+        'value': {
+          'total_sec': 27900,
+          'deep_sec': 4980,
+          'garmin_score': 97,
+        },
+      }
+    ],
+    'readiness_cal_28d': [
+      {
+        'date': '2026-06-19',
+        'value': {
+          'score': 77,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-20',
+        'value': {
+          'score': 94,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-21',
+        'value': {
+          'score': 94,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-22',
+        'value': {
+          'score': 94,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-23',
+        'value': {
+          'score': 94,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-24',
+        'value': {
+          'score': 94,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-25',
+        'value': {
+          'score': 75,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-06-26',
+        'value': {
+          'score': 44,
+          'level': 'LOW',
+        },
+      },
+      {
+        'date': '2026-06-27',
+        'value': {
+          'score': 50,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-06-28',
+        'value': {
+          'score': 69,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-06-29',
+        'value': {
+          'score': 44,
+          'level': 'LOW',
+        },
+      },
+      {
+        'date': '2026-06-30',
+        'value': {
+          'score': 39,
+          'level': 'LOW',
+        },
+      },
+      {
+        'date': '2026-07-01',
+        'value': {
+          'score': 63,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-02',
+        'value': {
+          'score': 65,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-03',
+        'value': {
+          'score': 71,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-04',
+        'value': {
+          'score': 92,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-07-05',
+        'value': {
+          'score': 92,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-07-06',
+        'value': {
+          'score': 93,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-07-07',
+        'value': {
+          'score': 75,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-07-08',
+        'value': {
+          'score': 79,
+          'level': 'HIGH',
+        },
+      },
+      {
+        'date': '2026-07-09',
+        'value': {
+          'score': 69,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-10',
+        'value': {
+          'score': 97,
+          'level': 'PRIME',
+        },
+      },
+      {
+        'date': '2026-07-11',
+        'value': {
+          'score': 100,
+          'level': 'PRIME',
+        },
+      },
+      {
+        'date': '2026-07-12',
+        'value': {
+          'score': 100,
+          'level': 'PRIME',
+        },
+      },
+      {
+        'date': '2026-07-13',
+        'value': {
+          'score': 60,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-14',
+        'value': {
+          'score': 58,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-15',
+        'value': {
+          'score': 61,
+          'level': 'MODERATE',
+        },
+      },
+      {
+        'date': '2026-07-16',
+        'value': {
+          'score': 91,
+          'level': 'HIGH',
+        },
+      }
+    ],
+    'recovery_cal_28d': [
+      {
+        'date': '2026-06-19',
+        'value': null,
+      },
+      {
+        'date': '2026-06-20',
+        'value': null,
+      },
+      {
+        'date': '2026-06-21',
+        'value': null,
+      },
+      {
+        'date': '2026-06-22',
+        'value': null,
+      },
+      {
+        'date': '2026-06-23',
+        'value': null,
+      },
+      {
+        'date': '2026-06-24',
+        'value': null,
+      },
+      {
+        'date': '2026-06-25',
+        'value': null,
+      },
+      {
+        'date': '2026-06-26',
+        'value': 66,
+      },
+      {
+        'date': '2026-06-27',
+        'value': null,
+      },
+      {
+        'date': '2026-06-28',
+        'value': null,
+      },
+      {
+        'date': '2026-06-29',
+        'value': 70,
+      },
+      {
+        'date': '2026-06-30',
+        'value': null,
+      },
+      {
+        'date': '2026-07-01',
+        'value': 78,
+      },
+      {
+        'date': '2026-07-02',
+        'value': 80,
+      },
+      {
+        'date': '2026-07-03',
+        'value': 81,
+      },
+      {
+        'date': '2026-07-04',
+        'value': 90,
+      },
+      {
+        'date': '2026-07-05',
+        'value': 87,
+      },
+      {
+        'date': '2026-07-06',
+        'value': 84,
+      },
+      {
+        'date': '2026-07-07',
+        'value': null,
+      },
+      {
+        'date': '2026-07-08',
+        'value': 78,
+      },
+      {
+        'date': '2026-07-09',
+        'value': null,
+      },
+      {
+        'date': '2026-07-10',
+        'value': 86,
+      },
+      {
+        'date': '2026-07-11',
+        'value': 90,
+      },
+      {
+        'date': '2026-07-12',
+        'value': 86,
+      },
+      {
+        'date': '2026-07-13',
+        'value': 80,
+      },
+      {
+        'date': '2026-07-14',
+        'value': 63,
+      },
+      {
+        'date': '2026-07-15',
+        'value': null,
+      },
+      {
+        'date': '2026-07-16',
+        'value': 89,
+      }
+    ],
+  },
+  'baselines': {
+    'hrv_baseline_7d': 70,
+    'rhr_baseline_28d': 46,
+    'sleep_baseline_7d': {
+      'total_seconds': 26881,
+      'total_hours': 7.47,
+      'deep_pct_avg': 21.1,
+    },
+    'formulas': {
+      'hrv_baseline': 'rolling_mean(last_7_nights_HRV), Plews 2014 [R7]',
+      'rhr_baseline': 'rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]',
+      'sleep_baseline': 'rolling_mean(last_7_days_total_sleep), Ohayon 2004 [R16]',
+    },
+  },
+  'dimension_scores': {
+    'hrv': {
+      'last_night_ms': 73,
+      'weekly_avg_ms': 70,
+      'fallback_used': false,
+      'ln_last_night': 4.2905,
+      'ln_baseline': 4.2485,
+      'pct_change': 0.009877,
+      'pct_change_pct': 0.99,
+      'anchors': [
+        {
+          'pct_change': 0.1,
+          'score': 70,
+          'label': 'spike',
+        },
+        {
+          'pct_change': 0.05,
+          'score': 85,
+          'label': 'green_high',
+        },
+        {
+          'pct_change': 0.0,
+          'score': 75,
+          'label': 'green_normal_mid',
+        },
+        {
+          'pct_change': -0.05,
+          'score': 60,
+          'label': 'green_low_yellow_high',
+        },
+        {
+          'pct_change': -0.08,
+          'score': 40,
+          'label': 'yellow_low_red_high',
+        },
+        {
+          'pct_change': -0.15,
+          'score': 10,
+          'label': 'red_deep',
+        },
+        {
+          'pct_change': -0.2,
+          'score': 0,
+          'label': 'severe',
+        }
+      ],
+      'score': 77,
+      'zone': 'green_high',
+    },
+    'rhr': {
+      'current_bpm': 43,
+      'baseline_bpm': 46,
+      'deviation': -3,
+      'deviation_bpm': '-3 bpm',
+      'anchors': [
+        {
+          'deviation_bpm': -3,
+          'score': 95,
+          'label': 'very_low',
+        },
+        {
+          'deviation_bpm': 0,
+          'score': 75,
+          'label': 'baseline',
+        },
+        {
+          'deviation_bpm': 3,
+          'score': 55,
+          'label': 'mild_fatigue',
+        },
+        {
+          'deviation_bpm': 6,
+          'score': 30,
+          'label': 'fatigue',
+        },
+        {
+          'deviation_bpm': 10,
+          'score': 0,
+          'label': 'severe',
+        }
+      ],
+      'score': 95,
+      'zone': 'very_low',
+    },
+    'sleep': {
+      'total_seconds': 27900,
+      'deep_seconds': 4980,
+      'rem_seconds': 7800,
+      'awake_count': 0,
+      'garmin_score_used': true,
+      'score': 97,
+      'sub_scores': {
+      },
+    },
+    'readiness': {
+      'original_score': 91,
+      'score': 91,
+      'zone': 'GREEN',
+    },
+    'stress': {
+      'stress_level': 14,
+      'anchors': [
+        {
+          'stress_level': 0,
+          'score': 95,
+          'label': 'very_low',
+        },
+        {
+          'stress_level': 25,
+          'score': 85,
+          'label': 'low',
+        },
+        {
+          'stress_level': 50,
+          'score': 60,
+          'label': 'moderate',
+        },
+        {
+          'stress_level': 75,
+          'score': 25,
+          'label': 'high',
+        },
+        {
+          'stress_level': 100,
+          'score': 0,
+          'label': 'severe',
+        }
+      ],
+      'score': 89,
+      'zone': 'low',
+    },
+  },
+  'composite': {
+    'recovery_score': 89,
+    'weights': {
+      'hrv': 0.3,
+      'sleep': 0.25,
+      'rhr': 0.2,
+      'readiness': 0.15,
+      'stress': 0.1,
+    },
+    'grade': 'A',
+    'label': '状态极佳',
+    'zone': 'EXCELLENT',
+    'calculation_steps': [
+      'HRV: 77 x 0.30 = 23.10',
+      'Sleep: 97 x 0.25 = 24.25',
+      'RHR: 95 x 0.20 = 19.00',
+      'Readiness: 91 x 0.15 = 13.65',
+      'Stress: 89 x 0.10 = 8.90',
+      'Total: 88.90 -> 89'
+    ],
+    'formula': 'recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10',
+    'reference': '§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003, [R21] Garmin',
+  },
+  'multi_dimension_validation': {
+    'num_patterns_checked': 5,
+    'patterns_checked': [
+      {
+        'id': 'IDEAL_RECOVERY',
+        'label': '理想恢复',
+        'condition_desc': 'HRV↑↑ RHR↓→ 睡眠优',
+        'ref': '[R2] Buchheit 2014',
+        'match': true,
+      },
+      {
+        'id': 'SYMPATHETIC_FATIGUE',
+        'label': '交感疲劳',
+        'condition_desc': 'HRV↓↓ RHR↑↑ 睡眠差',
+        'ref': '[R10] Plews 2013',
+        'match': false,
+      },
+      {
+        'id': 'PARASYMPATHETIC_REBOUND',
+        'label': '副交感反弹',
+        'condition_desc': 'HRV↑↑↑ RHR↓↓ 睡眠中',
+        'ref': '[R9] Recovery Tower Spike',
+        'match': false,
+      },
+      {
+        'id': 'SLEEP_DEBT',
+        'label': '睡眠债务疲劳',
+        'condition_desc': 'HRV↓ RHR→ 睡眠差·短',
+        'ref': '[R16] Ohayon 2004',
+        'match': false,
+      },
+      {
+        'id': 'HIGH_LOAD_ADAPTATION',
+        'label': '高负荷适应',
+        'condition_desc': 'HRV↓ RHR↑ 睡眠中',
+        'ref': '[R22] Chalencon 2012',
+        'match': false,
+      }
+    ],
+    'num_matched': 1,
+    'matched_patterns': [
+      {
+        'id': 'IDEAL_RECOVERY',
+        'label': '理想恢复',
+        'condition_desc': 'HRV↑↑ RHR↓→ 睡眠优',
+        'ref': '[R2] Buchheit 2014',
+        'match': true,
+      }
+    ],
+  },
+  'trend': {
+    'low_streak': 2,
+    'window_checked': 28,
+    'threshold': 60,
+    'alert': null,
+    'recent_scores_in_window': [
+      77,
+      94,
+      94,
+      94,
+      94,
+      94,
+      75,
+      44,
+      50,
+      69,
+      44,
+      39,
+      63,
+      65,
+      71,
+      92,
+      92,
+      93,
+      75,
+      79,
+      69,
+      97,
+      100,
+      100,
+      60,
+      58,
+      61,
+      91
+    ],
+  },
+  'derived_metrics_summary': {
+    'hrv_pct_change': 0.99,
+    'hrv_ln_change': 0.009877,
+    'rhr_deviation_bpm': -3,
+    'sleep_total_hours': 7.75,
+    'sleep_deep_pct': 17.85,
+    'sleep_rem_pct': 0,
+    'stress_level': 14,
+    'stress_score': 89,
+    'stress_zone': 'low',
+    'training_load': null,
+    'acwr_percent': 0,
+    'readiness_score_original': 91,
+  },
+};
 
     /* ============================================
        DATA LOADING — 双模式（对齐标准版 deep_diagnosis_latest）
@@ -1570,431 +2985,4 @@ ZINE_TEMPLATE = r'''<!DOCTYPE html>
     init();
   </script>
 </body>
-</html>'''
-
-
-# ── Helper: Python dict → JS object string ──────────────────────────────────
-
-def to_js(obj, indent=2):
-    """Convert Python dict/list to JS object literal string."""
-    if isinstance(obj, dict):
-        lines = ["{"]
-        for k, v in obj.items():
-            key = f"'{k}'" if isinstance(k, str) else str(k)
-            val = to_js(v, indent + 2)
-            lines.append(f"{' ' * indent}{key}: {val},")
-        lines.append(f"{' ' * (indent - 2)}" + "}")
-        return "\n".join(lines)
-    elif isinstance(obj, list):
-        if not obj:
-            return "[]"
-        items = [to_js(item, indent + 2) for item in obj]
-        return "[\n" + ",\n".join(" " * indent + item for item in items) + "\n" + " " * (indent - 2) + "]"
-    elif isinstance(obj, str):
-        # Escape special chars for JS
-        escaped = obj.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
-        return f"'{escaped}'"
-    elif isinstance(obj, bool):
-        return "true" if obj else "false"
-    elif obj is None:
-        return "null"
-    else:
-        return str(obj)
-
-
-# ── Helper: date → 中文格式 ──────────────────────────────────────────────────
-
-def fmt_date_zh(date_str):
-    """'2026-07-16' → '2026年7月16日'"""
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        return f"{dt.year}年{dt.month}月{dt.day}日"
-    except Exception:
-        return date_str
-
-
-# ── Helper: 构建 FALLBACK 数据 ──────────────────────────────────────────────
-
-def build_fallback_data(kpi: dict) -> dict:
-    """从 kpi_today.json 提取 FALLBACK 需要的精简字段。"""
-    composite = kpi["composite"]
-    dims = kpi["dimension_scores"]
-    raw = kpi["raw_inputs"]
-    history = kpi["history"]
-    baselines = kpi["baselines"]
-    derived = kpi["derived_metrics_summary"]
-
-    hrv_dim = dims["hrv"]
-    rhr_dim = dims["rhr"]
-    sleep_dim = dims["sleep"]
-    rd_dim = dims["readiness"]
-    stress_dim = dims["stress"]
-
-    sleep_score = sleep_dim["score"]
-    sleep_total_sec = raw["sleep"]["total_seconds"]
-    sleep_total_h = sleep_total_sec / 3600
-    deep_sec = raw["sleep"]["deep_seconds"]
-    rem_sec = raw["sleep"]["rem_seconds"]
-    deep_pct = (deep_sec / sleep_total_sec * 100) if sleep_total_sec > 0 else 0
-    rem_pct = (rem_sec / sleep_total_sec * 100) if sleep_total_sec > 0 else 0
-    awake_count = raw["sleep"]["awake_count"]
-
-    # 7 日趋势（改用 *_cal_28d，升序取末尾 7 条 = 最近 7 天；保留 null 缺口）
-    hrv_trend = [e["value"] for e in (history.get("hrv_cal_28d") or [])[-7:]]
-    rhr_trend = [e["value"] for e in (history.get("rhr_cal_28d") or [])[-7:]]
-
-    sleep_hist = history.get("sleep_cal_28d") or []
-    sleep_score_trend = []
-    sleep_deep_trend = []
-    for e in sleep_hist[-7:]:
-        v = e.get("value") or {}
-        gs = v.get("garmin_score")
-        if gs is not None:
-            sleep_score_trend.append(gs)
-        elif v.get("total_sec"):
-            sleep_score_trend.append(min(100, round(v["total_sec"] / 3600 / 9 * 100)))
-        else:
-            sleep_score_trend.append(0)
-        ts = v.get("total_sec", 0)
-        ds = v.get("deep_sec", 0)
-        sleep_deep_trend.append(round(ds / ts * 100, 1) if ts > 0 else 0)
-
-    rd_trend = []
-    for e in (history.get("readiness_cal_28d") or [])[-7:]:
-        rd_trend.append((e.get("value") or {}).get("score", 0))
-
-    # 趋势标签
-    hrv_dates = [e.get("date", "") for e in (history.get("hrv_cal_28d") or [])[-7:]]
-    trend_labels = []
-    for d_str in hrv_dates:
-        if d_str:
-            dt = datetime.strptime(d_str, "%Y-%m-%d")
-            trend_labels.append(f"{dt.month}/{dt.day}")
-        else:
-            trend_labels.append("")
-
-    return {
-        "date": kpi["date"],
-        "grade": composite["grade"],
-        "score": composite["recovery_score"],
-        "hrv": hrv_dim.get("last_night_ms", raw["hrv"]["last_night"]),
-        "hrv_base": baselines["hrv_baseline_7d"],
-        "hrv_dev_pct": hrv_dim.get("pct_change_pct", 0),
-        "hrv_score": hrv_dim["score"],
-        "hrv_weekly": raw["hrv"]["weekly_avg"],
-        "hrv_status": raw["hrv"].get("status", "--"),
-        "hrv_formula": baselines.get("formulas", {}).get("hrv_baseline",
-            "HRV = 过去7晚心率变异性的滚动平均值 (RMSSD)。Plews 2014 [R7]"),
-        "rhr": rhr_dim["current_bpm"],
-        "rhr_base": rhr_dim["baseline_bpm"],
-        "rhr_dev": rhr_dim["deviation"],
-        "rhr_score": rhr_dim["score"],
-        "rhr_formula": baselines.get("formulas", {}).get("rhr_baseline",
-            "RHR = 28日滚动静息心率基准。Bosquet 2003 [R12]"),
-        "sleep_total": round(sleep_total_h, 2),
-        "deep_pct": round(deep_pct, 2),
-        "rem_pct": round(rem_pct, 2),
-        "deep_time": round(deep_sec / 3600, 2),
-        "rem_time": round(rem_sec / 3600, 2),
-        "awake_count": awake_count,
-        "sleep_score": sleep_score,
-        "sleep_formula": baselines.get("formulas", {}).get("sleep_baseline",
-            "睡眠分数 = Garmin 综合评分。理想值：7-9小时，深睡15-20%，REM 20-25%。"),
-        "ready_score": rd_dim["score"],
-        "ready_level": rd_dim.get("zone", "--"),
-        "ready_formula": composite.get("formula",
-            "准备度综合 HRV、睡眠、RHR 和训练负荷加权计算"),
-        "stress_level": stress_dim["stress_level"],
-        "stress_score": stress_dim["score"],
-        "stress_zone": stress_dim.get("zone", "--"),
-        "trend": hrv_trend if hrv_trend else [73, 70, 75, 66, 80, 77, 73],
-        "trend_labels": trend_labels if any(trend_labels) else ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-        "rhr_trend": rhr_trend if rhr_trend else [46, 45, 44, 46, 43, 42, 43],
-        "sleep_trend": sleep_score_trend if sleep_score_trend else [94, 92, 97, 75, 88, 91, 97],
-        "sleep_deep_trend": sleep_deep_trend if sleep_deep_trend else [18, 17, 19, 15, 16, 18, 18],
-        "ready_trend": rd_trend if rd_trend else [78, 80, 85, 70, 82, 88, 91],
-    }
-
-
-# ── Helper: 构建 HTML 的 {{PLACEHOLDER}} 替换 ──────────────────────────────
-
-def build_render_data(kpi: dict, fallback: dict) -> dict:
-    """构建模板占位符 → 实际值的映射。"""
-    composite = kpi["composite"]
-    dims = kpi["dimension_scores"]
-    raw = kpi["raw_inputs"]
-    baselines = kpi["baselines"]
-    derived = kpi["derived_metrics_summary"]
-
-    hrv_dim = dims["hrv"]
-    rhr_dim = dims["rhr"]
-    sleep_dim = dims["sleep"]
-    rd_dim = dims["readiness"]
-    stress_dim = dims["stress"]
-
-    sleep_total_sec = raw["sleep"]["total_seconds"]
-    sleep_total_h = sleep_total_sec / 3600
-    deep_sec = raw["sleep"]["deep_seconds"]
-    rem_sec = raw["sleep"]["rem_seconds"]
-    deep_pct = (deep_sec / sleep_total_sec * 100) if sleep_total_sec > 0 else 0
-    rem_pct = (rem_sec / sleep_total_sec * 100) if sleep_total_sec > 0 else 0
-    awake_count = raw["sleep"]["awake_count"]
-
-    # 陈述
-    grade = composite["grade"]
-    score = composite["recovery_score"]
-    grade_map = {'A': '优秀', 'B': '良好', 'C': '需要注意', 'D': '需要关注', 'F': '需要休息'}
-    grade_text = grade_map.get(grade, '评估中')
-    statement = (
-        f"恢复分数 {score}（{grade_text}）。"
-        + ("身体状态优秀，继续保持良好习惯。" if score >= 80
-           else "恢复状态尚可，注意保持睡眠和休息。" if score >= 60
-           else "恢复状态需要关注，建议优先保证睡眠。")
-    )
-    statement_attr = f"每日健康报告，{kpi['date']}"
-
-    # 模式匹配
-    hrv_pct = hrv_dim.get("pct_change_pct", 0)
-    rhr_dev = rhr_dim["deviation"]
-    patterns = []
-    if hrv_pct > 0:
-        patterns.append("<div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>心率变异性呈上升趋势，恢复状态良好</span></div>")
-    elif hrv_pct >= -5:
-        patterns.append("<div class='insight-item'><span class='insight-tag'>稳定</span><span class='insight-text'>心率变异性稳定，恢复能力维持</span></div>")
-    else:
-        patterns.append("<div class='insight-item'><span class='insight-tag warn'>注意</span><span class='insight-text'>心率变异性下降，建议关注恢复</span></div>")
-
-    if rhr_dev < 0:
-        patterns.append(f"<div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>静息心率低于基准 {abs(rhr_dev)} 次/分，心肺功能改善</span></div>")
-    elif rhr_dev == 0:
-        patterns.append("<div class='insight-item'><span class='insight-tag'>稳定</span><span class='insight-text'>静息心率与基准持平</span></div>")
-
-    sleep_score_val = sleep_dim["score"]
-    if sleep_score_val >= 80:
-        patterns.append(f"<div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>睡眠分数 {sleep_score_val}，睡眠质量优秀</span></div>")
-    elif sleep_score_val >= 60:
-        patterns.append(f"<div class='insight-item'><span class='insight-tag warn'>注意</span><span class='insight-text'>睡眠分数 {sleep_score_val}，睡眠质量尚可但可改善</span></div>")
-    else:
-        patterns.append(f"<div class='insight-item'><span class='insight-tag warn'>注意</span><span class='insight-text'>睡眠分数 {sleep_score_val}，建议优先改善睡眠</span></div>")
-
-    if rd_dim["score"] >= 80:
-        patterns.append("<div class='insight-item'><span class='insight-tag good'>良好</span><span class='insight-text'>准备度分数高，可承受训练压力</span></div>")
-
-    # 建议
-    advice = []
-    if sleep_total_h < 7.5:
-        advice.append("睡眠时长不足，建议今晚提前入睡，目标7-9小时")
-    else:
-        advice.append("睡眠时长达标，继续保持规律作息")
-    if hrv_pct < 0:
-        advice.append("心率变异性偏低，建议进行轻量恢复活动")
-    if rhr_dev < -2:
-        advice.append("静息心率表现优秀，可安排中高强度训练")
-    elif rhr_dev > 2:
-        advice.append("静息心率偏高，注意休息和恢复")
-    if awake_count > 2:
-        advice.append("夜间清醒次数较多，睡前减少屏幕时间")
-    if len(advice) < 3:
-        advice.append("保持规律作息，适度运动，持续关注健康数据")
-
-    # 准备度
-    ready_score = rd_dim["score"]
-    ready_detail = (
-        "; ".join(composite.get("calculation_steps", []))
-        + "。总分：" + str(composite.get("recovery_score", 0))
-        if composite.get("calculation_steps")
-        else f"准备度分数 {ready_score}"
-    )
-
-    # 压力分析
-    stress_level = stress_dim["stress_level"]
-    stress_zone = stress_dim.get("zone", "--")
-    stress_analysis = (
-        f"平均压力水平 {stress_level}，处于{stress_zone}区间。"
-        + ("压力管理良好，恢复状态佳。" if stress_level <= 25
-           else "压力可控，注意保持作息规律。" if stress_level <= 50
-           else "压力偏高，建议优先保证睡眠和放松活动。")
-    )
-
-    # 评分标签样式
-    def tag_class(val, thresholds):
-        for th, cls in thresholds:
-            if val >= th:
-                return cls
-        return ""
-
-    return {
-        "GRADE": grade,
-        "SCORE": score,
-        "DATE_ZH": fmt_date_zh(kpi["date"]),
-        "DAILY_MSG": f"今日健康分数为 <strong>{score}</strong>。您的身体正在良好恢复。保持节奏。",
-        "SCORE_STAMP": "状态良好" if score >= 80 else ("注意" if score >= 60 else "需要休息"),
-        "STATEMENT_QUOTE": statement,
-        "STATEMENT_ATTR": statement_attr,
-        # HRV
-        "HRV_TAG": f"分数：{hrv_dim['score']}",
-        "HRV_VALUE": hrv_dim.get("last_night_ms", raw["hrv"]["last_night"]),
-        "HRV_DELTA": f"{hrv_dim.get('pct_change_pct', 0):+.2f}%（较基准）",
-        "HRV_FORMULA": (baselines.get("formulas", {}).get("hrv_baseline", ""))[:100] + "...",
-        "HRV_DETAIL": (
-            f"心率变异性 {hrv_dim.get('last_night_ms', 0)}ms，"
-            f"基准 {baselines['hrv_baseline_7d']}ms。"
-            f"变化 {hrv_dim.get('pct_change_pct', 0):+.2f}%。"
-            + ("副交感神经张力良好，恢复能力提升。" if hrv_dim.get("pct_change_pct", 0) > 0
-               else "恢复能力稳定。" if hrv_dim.get("pct_change_pct", 0) >= -5
-               else "注意恢复，避免过度训练。")
-        ),
-        # RHR
-        "RHR_TAG": f"分数：{rhr_dim['score']}",
-        "RHR_VALUE": rhr_dim["current_bpm"],
-        "RHR_DELTA": f"{rhr_dim['deviation']:+d}（较基准）",
-        "RHR_FORMULA": (baselines.get("formulas", {}).get("rhr_baseline", ""))[:100] + "...",
-        "RHR_DETAIL": (
-            f"静息心率 {rhr_dim['current_bpm']} 次/分，"
-            f"基准 {rhr_dim['baseline_bpm']} 次/分（偏差 {rhr_dim['deviation']:+d} 次/分）。"
-            + ("心血管效率优秀，恢复状态佳。" if rhr_dim["deviation"] < 0 else "恢复状态良好。")
-        ),
-        # SLEEP
-        "SLEEP_TAG": f"睡眠分数：{sleep_score_val}",
-        "SLEEP_VALUE": f"{sleep_total_h:.2f}",
-        "SLEEP_DELTA": f"分数：{sleep_score_val}/100",
-        "SLEEP_FORMULA": (baselines.get("formulas", {}).get("sleep_baseline", ""))[:100] + "...",
-        "SLEEP_DEEP_PCT": f"{round(deep_pct)}%",
-        "SLEEP_REM_PCT": f"{round(rem_pct)}%",
-        "SLEEP_AWAKE": f"{awake_count}次",
-        "SLEEP_DEEP_TIME": f"{deep_sec / 3600:.2f}",
-        "SLEEP_REM_TIME": f"{rem_sec / 3600:.2f}",
-        "SLEEP_AWAKE_COUNT": str(awake_count),
-        # READINESS
-        "READY_TAG": f"准备度：{ready_score}",
-        "READY_VALUE": ready_score,
-        "READY_DELTA": "准备度高" if ready_score >= 80 else ("准备度中等" if ready_score >= 60 else "准备度低"),
-        "READY_FORMULA": composite.get("formula", "")[:100] + "...",
-        "READY_DETAIL": ready_detail[:200],
-        # STRESS
-        "STRESS_TAG": f"分数：{stress_dim['score']}",
-        "STRESS_VALUE": stress_level,
-        "STRESS_DELTA": "压力低" if stress_dim["score"] >= 80 else ("压力中等" if stress_dim["score"] >= 60 else "压力高"),
-        "STRESS_FORMULA": "Stress = Garmin 全天平均压力指数 (0-100)。0-25 为低压力，25-50 为中等，>50 为高压力。",
-        "STRESS_DETAIL": stress_analysis,
-        # Slide 4
-        "TREND_SUB": f"7日恢复趋势 — {kpi['date']}",
-        "READY_SUB": f"准备度7日趋势 — {kpi['date']}",
-        # Slide 5
-        "HRV_FORMULA_BOX": baselines.get("formulas", {}).get("hrv_baseline", ""),
-        "HRV_ANALYSIS_TEXT": (
-            f"心率变异性 {hrv_dim.get('last_night_ms', 0)}ms，"
-            f"基准 {baselines['hrv_baseline_7d']}ms。"
-            f"变化 {hrv_dim.get('pct_change_pct', 0):+.2f}%。"
-            + ("副交感神经张力良好，恢复能力提升。" if hrv_dim.get("pct_change_pct", 0) > 0
-               else "恢复能力稳定。" if hrv_dim.get("pct_change_pct", 0) >= -5
-               else "注意恢复，避免过度训练。")
-        ),
-        "HRV_SCORE_CHIP": f"分数：{hrv_dim['score']}",
-        "HRV_BASE_CHIP": f"基准：{baselines['hrv_baseline_7d']}ms",
-        "HRV_DEV_CHIP": f"偏差：{hrv_dim.get('pct_change_pct', 0):+.2f}%",
-        "RHR_FORMULA_BOX": baselines.get("formulas", {}).get("rhr_baseline", ""),
-        "RHR_ANALYSIS_TEXT": (
-            f"静息心率 {rhr_dim['current_bpm']} 次/分，"
-            f"基准 {rhr_dim['baseline_bpm']} 次/分（偏差 {rhr_dim['deviation']:+d} 次/分）。"
-            + ("心血管效率优秀，恢复状态佳。" if rhr_dim["deviation"] < 0 else "恢复状态良好。")
-        ),
-        "RHR_SCORE_CHIP": f"分数：{rhr_dim['score']}",
-        "RHR_BASE_CHIP": f"基准：{rhr_dim['baseline_bpm']}次/分",
-        "RHR_DEV_CHIP": f"偏差：{rhr_dim['deviation']:+d}次/分",
-        # Slide 6
-        "DETAIL_DEEP_PCT": f"{round(deep_pct)}%",
-        "DETAIL_REM_PCT": f"{round(rem_pct)}%",
-        "DETAIL_AWAKE": f"{awake_count}次",
-        "DETAIL_TOTAL": f"{sleep_total_h:.1f}",
-        "DETAIL_DEEP_TIME": f"{deep_sec / 3600:.2f}",
-        "DETAIL_REM_TIME": f"{rem_sec / 3600:.2f}",
-        "DETAIL_AWAKE_COUNT": str(awake_count),
-        "DETAIL_SLEEP_TAG": f"睡眠分数：{sleep_score_val}",
-        "PATTERN_LIST": "\n          ".join(patterns),
-        "ADVICE_LIST": "\n          ".join(f"<li>{a}</li>" for a in advice[:3]),
-    }
-
-
-# ── Main ────────────────────────────────────────────────────────────────────
-
-def main():
-    parser = argparse.ArgumentParser(description="从 kpi_today.json 生成 wellness_zine.html")
-    parser.add_argument("--output", "-o", default=None,
-                        help="输出路径（默认: output/html/wellness_zine.html）")
-    parser.add_argument("--kpi", default=None,
-                        help="kpi_today.json 路径（默认: output/kpi_today.json）")
-    args = parser.parse_args()
-
-    kpi_path = Path(args.kpi) if args.kpi else PROJECT_ROOT / "output" / "kpi_today.json"
-    output_path = Path(args.output) if args.output else PROJECT_ROOT / "output" / "html" / "wellness_zine.html"
-
-    print("=" * 60)
-    print(f"build_zine.py — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    print("=" * 60)
-
-    # 1. Load kpi_today.json
-    if not kpi_path.exists():
-        print(f"ERROR: {kpi_path} not found")
-        print("请先运行: python scripts/rebuild_kpi_today.py")
-        return 1
-
-    with open(kpi_path, encoding="utf-8") as f:
-        kpi = json.load(f)
-
-    print(f"\n[1] Loaded kpi_today.json")
-    print(f"    date: {kpi['date']}")
-    print(f"    recovery_score: {kpi['composite']['recovery_score']} ({kpi['composite']['grade']})")
-    print(f"    data_source: {kpi.get('data_source', 'unknown')}")
-
-    # 2. Build render data (template placeholders) from full kpi
-    #    STATIC_DATA 注入完整 kpi_today.json（嵌套结构），供 file:// 双模式渲染
-    render_data = build_render_data(kpi, kpi)
-
-    # 4. Render template
-    html = ZINE_TEMPLATE
-    for key, value in render_data.items():
-        html = html.replace("{{" + key + "}}", str(value))
-
-    html = html.replace("{{STATIC_DATA_JS}}", to_js(kpi))
-
-    # 5. Write output
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Backup if exists
-    if output_path.exists():
-        backup_path = output_path.with_suffix(".html.bak")
-        backup_path.write_text(output_path.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"\n[2] Backed up existing file to: {backup_path}")
-
-    output_path.write_text(html, encoding="utf-8")
-
-    print(f"\n[3] Generated: {output_path}")
-    print(f"    File size: {output_path.stat().st_size / 1024:.1f} KB")
-    print(f"    STATIC_DATA fields: {len(kpi)}")
-    print(f"    Template placeholders replaced: {len(render_data)}")
-
-    # 6. Verify key values
-    print(f"\n[4] Verification:")
-    print(f"    Grade: {kpi['composite']['grade']} | Score: {kpi['composite']['recovery_score']}")
-    print(f"    HRV: {dims_hrv(kpi)} ms (score {dims_hrv_score(kpi)})")
-    print(f"    RHR: {dims_rhr(kpi)} bpm (score {dims_rhr_score(kpi)})")
-    print(f"    Sleep: {dims_sleep_score(kpi)} | Total: {dims_sleep_total(kpi):.2f}h")
-    print(f"    Readiness: {dims_ready(kpi)} | Stress: {dims_stress(kpi)}")
-
-    print(f"\nDone! Open {output_path} to verify.")
-    return 0
-
-
-def dims_hrv(kpi): return kpi["dimension_scores"]["hrv"].get("last_night_ms", kpi["raw_inputs"]["hrv"]["last_night"])
-def dims_hrv_score(kpi): return kpi["dimension_scores"]["hrv"]["score"]
-def dims_rhr(kpi): return kpi["dimension_scores"]["rhr"]["current_bpm"]
-def dims_rhr_score(kpi): return kpi["dimension_scores"]["rhr"]["score"]
-def dims_sleep_score(kpi): return kpi["dimension_scores"]["sleep"]["score"]
-def dims_sleep_total(kpi): return kpi["raw_inputs"]["sleep"]["total_seconds"] / 3600
-def dims_ready(kpi): return kpi["dimension_scores"]["readiness"]["score"]
-def dims_stress(kpi): return kpi["dimension_scores"]["stress"]["score"]
-
-
-if __name__ == "__main__":
-    exit(main())
+</html>
