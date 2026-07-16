@@ -1674,22 +1674,36 @@ function drawCalChart(canvasId, datasets, opts = {}) {
       }
     });
 
-    // hover
+    // hover / touch —— 触发区为「整条竖直区域」(nearest-x), 多线图显示该列全部图例; 触摸后驻留
     if (tooltip && pointMap.length) {
-      canvas.onmousemove = (e) => {
+      // 按 x 列分组: 同一竖直列的所有数据点(多线图每列含多条)归为一组
+      const groups = {};
+      pointMap.forEach(p => {
+        const key = Math.round(p.x);
+        if (!groups[key]) groups[key] = { x: p.x, label: p.label, pts: [] };
+        groups[key].pts.push(p);
+      });
+      const groupList = Object.values(groups);
+      const fmt = (v) => opts.valueFormat === 'pct' ? v.toFixed(1) + '%'
+        : (opts.valueFormat === 'decimal' ? v.toFixed(1) : Math.round(v)) + (opts.unit || '');
+      const showAtClientX = (clientX) => {
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-        let closest = null, cd = Infinity;
-        pointMap.forEach(p => { const d = Math.hypot(p.x - mx, p.y - my); if (d < cd) { cd = d; closest = p; } });
-        if (closest && cd < 30) {
-          const valStr = opts.valueFormat === 'pct' ? closest.value.toFixed(1) + '%' : Math.round(closest.value) + (opts.unit || '');
-          tooltip.innerHTML = `<div class="tt-date">${closest.label}</div><div class="tt-val" style="color:${closest.color};">${valStr}</div>`;
-          tooltip.classList.add('show');
-          tooltip.style.left = Math.min(closest.x + 10, w - 80) + 'px';
-          tooltip.style.top = Math.max(closest.y - 40, 4) + 'px';
-        } else tooltip.classList.remove('show');
+        const mx = (clientX - rect.left) * (w / (rect.width || w));
+        let g = null, gd = Infinity;
+        groupList.forEach(grp => { const d = Math.abs(grp.x - mx); if (d < gd) { gd = d; g = grp; } });
+        if (!g) { tooltip.classList.remove('show'); return; }
+        const rows = g.pts.map(p => `<div class="tt-val" style="color:${p.color};">${fmt(p.value)}</div>`).join('');
+        tooltip.innerHTML = `<div class="tt-date">${g.label}</div>${rows}`;
+        tooltip.classList.add('show');
+        const topY = Math.min(...g.pts.map(p => p.y));
+        tooltip.style.left = Math.min(Math.max(g.x - 28, 2), w - 90) + 'px';
+        tooltip.style.top = Math.max(topY - 42 - (g.pts.length - 1) * 16, 2) + 'px';
       };
+      canvas.onmousemove = (e) => showAtClientX(e.clientX);
       canvas.onmouseleave = () => tooltip.classList.remove('show');
+      canvas.ontouchstart = (e) => { if (e.touches[0]) { e.preventDefault(); showAtClientX(e.touches[0].clientX); } };
+      canvas.ontouchmove = (e) => { if (e.touches[0]) { e.preventDefault(); showAtClientX(e.touches[0].clientX); } };
+      // 触摸抬起后保留数值(驻留), 不隐藏; 点其他竖直区域可切换
     }
   } catch (err) {
     console.warn('drawCalChart error', canvasId, err);

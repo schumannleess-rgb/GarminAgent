@@ -2687,12 +2687,12 @@
     }
 
     /* 在数据点上方绘制数值标签（白色描边光晕，保证网格线上可读；null 跳过） */
-    function drawValueTag(ctx, x, y, text, color, padTop) {
+    function drawValueTag(ctx, x, y, text, color, padTop, below) {
       if (text == null || text === '') return;
       ctx.font = 'bold 11px "Bebas Neue", sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      let ty = y - 13;
-      if (ty < (padTop || 20) + 2) ty = y + 16;   // 顶部空间不足则移到点下方
+      let ty = below ? y + 16 : y - 13;
+      if (!below && ty < (padTop || 20) + 2) ty = y + 16;   // 顶部空间不足则移到点下方
       ctx.lineWidth = 3; ctx.strokeStyle = '#F4EFE6';
       ctx.strokeText(text, x, ty);
       ctx.fillStyle = color; ctx.fillText(text, x, ty);
@@ -2916,6 +2916,20 @@
       });
       ctx.stroke();
 
+      // HRV 常驻数值标签（点 + 绿色数字，标在点上方；移动端无需触摸）
+      (function () {
+        const nH = hrvData.length;
+        const skH = Math.max(1, Math.ceil(nH / Math.max(4, Math.floor(cw / 42))));
+        hrvData.forEach((v, i) => {
+          if (v == null) return;
+          if (i % skH !== 0 && i !== nH - 1) return;
+          const [x, y] = xyH(v, i);
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#008F4D'; ctx.fill();
+          drawValueTag(ctx, x, y, String(Math.round(v)), '#008F4D', pad.top, false);
+        });
+      })();
+
       // RHR line (right axis, red)
       const rhrVals = (rhrData || []).filter(v => v != null);
       const rhrMin = rhrVals.length ? Math.max(0, Math.min(...rhrVals) - 3) : 0;
@@ -2942,6 +2956,20 @@
         penR = true;
       });
       ctx.stroke();
+
+      // RHR 常驻数值标签（点 + 红色数字，标在点下方，避开 HRV 标签）
+      (function () {
+        const nR = rhrData.length;
+        const skR = Math.max(1, Math.ceil(nR / Math.max(4, Math.floor(cw / 42))));
+        rhrData.forEach((v, i) => {
+          if (v == null) return;
+          if (i % skR !== 0 && i !== nR - 1) return;
+          const [x, y] = xyR(v, i);
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#b91c1c'; ctx.fill();
+          drawValueTag(ctx, x, y, String(Math.round(v)), '#b91c1c', pad.top, true);
+        });
+      })();
 
       // x labels
       labels.forEach((lb, i) => {
