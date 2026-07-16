@@ -1,0 +1,265 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>恢复趋势追踪</title><style> *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } :root { --bg: #0f172a; --card: #1e293b; --card-border: #334155; --text: #f1f5f9; --text-dim: #94a3b8; --text-dark: #64748b; --excellent: #22c55e; --good: #3b82f6; --caution: #eab308; --poor: #f97316; --critical: #ef4444; --dim-hrv: #a78bfa; --dim-rhr: #22d3ee; --dim-sleep: #34d399; --dim-readiness: #f87171; --dim-stress: #fbbf24; } body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; -webkit-font-smoothing: antialiased; } .container { max-width: 420px; margin: 0 auto; padding: 12px; padding-bottom: 80px; } /* Header */ .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; margin-bottom: 12px; border-bottom: 1px solid var(--card-border); } .header-title { font-size: 16px; font-weight: 700; } .header-date { font-size: 12px; color: var(--text-dim); margin-top: 2px; } .refresh-btn { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; padding: 4px 8px; } /* Score Ring */ .score-ring-wrap { display: flex; align-items: center; gap: 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px; margin-bottom: 12px; } .score-ring { width: 80px; height: 80px; position: relative; flex-shrink: 0; } .score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); } .score-ring-bg { fill: none; stroke: var(--card-border); stroke-width: 6; } .score-ring-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s ease; } .score-value { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(0deg); } .score-number { font-size: 28px; font-weight: 800; line-height: 1; } .score-info { flex: 1; } .score-grade { font-size: 18px; font-weight: 700; margin-bottom: 4px; } .score-label { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; } .trend-arrow { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 8px; border-radius: 6px; font-weight: 600; } .trend-arrow.up { background: rgba(34,197,94,0.15); color: var(--excellent); } .trend-arrow.down { background: rgba(239,68,68,0.15); color: var(--critical); } .trend-arrow.same { background: rgba(148,163,184,0.15); color: var(--text-dim); } /* Comparison Cards */ .comp-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; } .comp-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; } .comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; } .comp-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; } .comp-title .icon { font-size: 18px; } .comp-zone { font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 600; text-transform: uppercase; } .comp-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; } .comp-label { color: var(--text-dim); display: flex; align-items: center; gap: 4px; } .comp-value { font-family: 'SF Mono', Menlo, monospace; font-weight: 600; } .comp-value.better { color: var(--excellent); } .comp-value.worse { color: var(--critical); } .comp-bar { height: 6px; background: var(--card-border); border-radius: 3px; margin-top: 8px; overflow: hidden; position: relative; } .comp-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; } .comp-bar-baseline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text-dim); opacity: 0.5; } /* Chart Placeholder */ .chart-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 16px; margin-bottom: 12px; } .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; } .chart-canvas { width: 100%; height: 160px; background: rgba(0,0,0,0.2); border-radius: 10px; } .chart-empty { display: flex; align-items: center; justify-content: center; height: 160px; color: var(--text-dark); font-size: 13px; } /* Pattern Chips */ .chips-row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: none; margin-bottom: 12px; } .chips-row::-webkit-scrollbar { display: none; } .chip { flex-shrink: 0; padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; background: var(--card); border: 1px solid var(--card-border); color: var(--text-dim); display: flex; align-items: center; gap: 6px; } .chip.ok { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: var(--excellent); } /* Alert */ .alert-bar { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--excellent); } .alert-bar.warn { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: var(--critical); } /* Loading */ .loading { text-align: center; padding: 60px 20px; color: var(--text-dim); } .spinner { width: 32px; height: 32px; border: 3px solid var(--card-border); border-top-color: var(--good); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; } @keyframes spin { to { transform: rotate(360deg); } } .hidden { display: none !important; } /* Bar chart */ .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; padding: 8px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } .bar-chart::-webkit-scrollbar { display: none; } .bar-item { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 14px; } .bar-fill { width: 100%; background: var(--good); border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.6s ease; opacity: 0.8; } .bar-fill.low { background: var(--critical); opacity: 0.6; } .bar-fill.mid { background: var(--caution); opacity: 0.7; } .bar-label { font-size: 9px; color: var(--text-dark); } .threshold-line { position: relative; height: 20px; border-top: 1px dashed var(--critical); margin-top: 4px; } .threshold-label { font-size: 9px; color: var(--critical); position: absolute; right: 0; top: -14px; }
+</style></head><body>
+<div class="container">
+<div id="loading" class="loading">
+<div class="spinner"></div>
+<p>加载趋势数据...</p>
+</div>
+<div id="app" class="hidden">
+<div class="header">
+<div>
+<div class="header-title">恢复趋势</div>
+<div class="header-date" id="dateDisplay">--</div>
+</div><button class="refresh-btn" onclick="loadData()" title="刷新">↻</button></div>
+<!-- Score Ring + Trend -->
+<div class="score-ring-wrap" id="heroWrap">
+<div class="score-ring"><svg viewBox="0 0 80 80"><circle class="score-ring-bg" cx="40" cy="40" r="34"/><circle class="score-ring-fill" id="heroRing" cx="40" cy="40" r="34" stroke="var(--good)" stroke-dasharray="213.6" stroke-dashoffset="213.6"/></svg>
+<div class="score-value">
+<div class="score-number" id="scoreNum" style="color:var(--good);">--</div>
+</div></div>
+<div class="score-info">
+<div class="score-grade" id="gradeText">--</div>
+<div class="score-label" id="scoreLabel">--</div>
+<div class="trend-arrow same" id="trendArrow">&#x2014; 趋势数据加载中</div>
+</div></div>
+<!-- Alert -->
+<div class="alert-bar" id="alertBar"><span id="alertIcon"></span><span id="alertText">趋势正常</span></div>
+<!-- Comparison Cards -->
+<div class="comp-grid">
+<!-- HRV -->
+<div class="comp-card">
+<div class="comp-header">
+<div class="comp-title"> HRV 心率变异性</div>
+<div class="comp-zone" id="hrvZone" style="background:rgba(167,139,250,0.2);color:var(--dim-hrv);">--</div>
+</div>
+<div class="comp-row"><span class="comp-label">昨晚 HRV</span><span class="comp-value" id="hrvCurrent">-- ms</span></div>
+<div class="comp-row"><span class="comp-label">7 天基线</span><span class="comp-value" style="color:var(--text-dim);" id="hrvBaseline">-- ms</span></div>
+<div class="comp-row"><span class="comp-label">变化</span><span class="comp-value" id="hrvChange">--</span></div>
+<div class="comp-bar">
+<div class="comp-bar-fill" id="hrvBar" style="width:0%;background:var(--dim-hrv);"></div>
+</div></div>
+<!-- RHR -->
+<div class="comp-card">
+<div class="comp-header">
+<div class="comp-title"> 静息心率</div>
+<div class="comp-zone" id="rhrZone" style="background:rgba(34,211,238,0.2);color:var(--dim-rhr);">--</div>
+</div>
+<div class="comp-row"><span class="comp-label">当前</span><span class="comp-value" id="rhrCurrent">-- bpm</span></div>
+<div class="comp-row"><span class="comp-label">28 天基线</span><span class="comp-value" style="color:var(--text-dim);" id="rhrBaseline">-- bpm</span></div>
+<div class="comp-row"><span class="comp-label">偏差</span><span class="comp-value" id="rhrDev">--</span></div>
+<div class="comp-bar">
+<div class="comp-bar-fill" id="rhrBar" style="width:0%;background:var(--dim-rhr);"></div>
+</div></div>
+<!-- Sleep -->
+<div class="comp-card">
+<div class="comp-header">
+<div class="comp-title"> 睡眠</div>
+<div class="comp-zone" id="sleepZone" style="background:rgba(52,211,153,0.2);color:var(--dim-sleep);">--</div>
+</div>
+<div class="comp-row"><span class="comp-label">总时长</span><span class="comp-value" id="sleepTotal">-- h</span></div>
+<div class="comp-row"><span class="comp-label">7 天平均</span><span class="comp-value" style="color:var(--text-dim);" id="sleepBaseline">-- h</span></div>
+<div class="comp-row"><span class="comp-label">深睡占比</span><span class="comp-value" id="deepPct">--%</span></div>
+<div class="comp-bar">
+<div class="comp-bar-fill" id="sleepBar" style="width:0%;background:var(--dim-sleep);"></div>
+</div></div>
+<!-- Stress -->
+<div class="comp-card">
+<div class="comp-header">
+<div class="comp-title"> 压力</div>
+<div class="comp-zone" id="stressZone" style="background:rgba(251,191,36,0.2);color:var(--dim-stress);">--</div>
+</div>
+<div class="comp-row"><span class="comp-label">平均压力</span><span class="comp-value" id="stressLevel">-- /100</span></div>
+<div class="comp-row"><span class="comp-label">压力得分</span><span class="comp-value" id="stressScore" style="color:var(--text-dim);">--</span></div>
+<div class="comp-bar">
+<div class="comp-bar-fill" id="stressBar" style="width:0%;background:var(--dim-stress);"></div>
+</div></div>
+</div>
+<!-- Trend Bar Chart -->
+<div class="chart-card">
+<div class="chart-title">恢复分近期走势</div>
+<div class="bar-chart" id="trendBars"></div>
+<div class="threshold-line"><span class="threshold-label">警戒线 60</span></div>
+<div style="font-size:11px;color:var(--text-dark);margin-top:8px;" id="trendInfo"> 近 28 天恢复评分走势（低于 60 需注意） </div>
+</div>
+<!-- Readiness Bar Chart -->
+<div class="chart-card">
+<div class="chart-title">训练准备度</div>
+<div class="bar-chart" id="readyBars"></div>
+<div style="font-size:11px;color:var(--text-dark);margin-top:8px;" id="readyInfo"> 近 28 天训练准备度（80+ 适合训练） </div>
+</div>
+<!-- Pattern Chips -->
+<div class="chips-row" id="chipsRow"></div>
+<!-- Raw Data --><button class="raw-toggle" id="rawToggle" onclick="toggleRaw()" style=" position:fixed;bottom:0;left:0;right:0; background:var(--card);border-top:1px solid var(--card-border); padding:10px 16px;z-index:100; "> 查看原始数据 </button>
+<div class="raw-content" id="rawContent" style="margin-bottom:60px;">
+<pre id="rawPre" style=" background:rgba(0,0,0,0.3);padding:12px;border-radius:10px; font-size:10px;line-height:1.5;overflow:auto;color:var(--text-dim); font-family:'SF Mono',Menlo,monospace;max-height:300px; "></pre></div>
+</div></div>
+<script>
+const CIRCUMFERENCE = 2 * Math.PI * 34;
+let rawVisible = false;
+function getGradeColor(grade) { const map = { A: '#22c55e', B: '#3b82f6', C: '#eab308', D: '#f97316', F: '#ef4444' };
+return map[grade] || map['C'];
+}
+function getZoneColor(zone) { const map = { 'GREEN_NORMAL': '#34d399', 'LOW': '#22d3ee', 'MODERATE': '#fbbf24', 'HIGH': '#f97316', 'RED': '#f87171', 'EXCELLENT': '#22c55e', 'GOOD': '#3b82f6', 'CAUTION': '#eab308', 'POOR': '#f97316', 'CRITICAL': '#ef4444', 'OPTIMAL': '#22c55e', 'very_low': '#22d3ee', 'baseline': '#94a3b8', 'mild_fatigue': '#fbbf24', 'fatigue': '#f97316', 'severe': '#ef4444', 'low': '#34d399', 'moderate': '#fbbf24', 'high': '#f97316', 'spike': '#a78bfa', 'green_high': '#22c55e', 'green_normal_mid': '#34d399', 'green_low_yellow_high': '#fbbf24', 'yellow_low_red_high': '#f97316', 'red_deep': '#ef4444' };
+return map[zone] || '#94a3b8';
+}
+function animateRing(el, score) { const target = CIRCUMFERENCE - (CIRCUMFERENCE * Math.min(score, 100) / 100);
+el.style.strokeDashoffset = CIRCUMFERENCE;
+requestAnimationFrame(() => { requestAnimationFrame(() => { el.style.strokeDashoffset = target;
+});
+});
+}
+function renderBarChart(containerId, scores, threshold) { const container = document.getElementById(containerId);
+if (!scores || scores.length === 0) { container.innerHTML = '<div style="color:var(--text-dark);font-size:12px;padding:20px;text-align:center;">暂无历史数据</div>';
+return;
+}
+const max = 100;
+container.innerHTML = scores.map((s, i) => { const h = Math.max(4, (s / max) * 70);
+const cls = s < (threshold || 60) ? 'bar-fill low' : 'bar-fill';
+const color = getGradeColor(s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F');
+return `<div class="bar-item">
+<div class="${cls}" style="height:${h}px;
+background:${color};
+"></div>
+<div class="bar-label">${scores.length - i}天前</div>
+</div>`;
+}).join('');
+}
+function render(data) { const root = document.documentElement;
+const ds = data.dimension_scores || {};
+const derived = data.derived_metrics_summary || {};
+const trend = data.trend || {};
+const patterns = data.multi_dimension_validation?.patterns_checked || [];
+const score = data.composite?.recovery_score ?? 0;
+const grade = data.composite?.grade || 'C';
+const gc = getGradeColor(grade);
+/* Header */
+document.getElementById('dateDisplay').textContent = data.date || '--';
+/* Hero */
+document.getElementById('scoreNum').textContent = score;
+document.getElementById('scoreNum').style.color = gc;
+document.getElementById('gradeText').textContent = data.composite?.label || grade;
+document.getElementById('gradeText').style.color = gc;
+document.getElementById('scoreLabel').textContent = `综合恢复分 ${score}/100`;
+const heroRing = document.getElementById('heroRing');
+heroRing.style.stroke = gc;
+animateRing(heroRing, score);
+/* Trend arrow - compare first vs last in window */
+const scores = trend.recent_scores_in_window || [];
+const trendArrow = document.getElementById('trendArrow');
+if (scores.length >= 2) { const first = scores[0];
+const last = scores[scores.length - 1];
+const diff = last - first;
+if (diff > 0) { trendArrow.className = 'trend-arrow up';
+trendArrow.innerHTML = `&#x2191;
+上升 ${diff} 分`;
+} else if (diff < 0) { trendArrow.className = 'trend-arrow down';
+trendArrow.innerHTML = `&#x2193;
+下降 ${Math.abs(diff)} 分`;
+} else { trendArrow.className = 'trend-arrow same';
+trendArrow.innerHTML = '&#x2014; 持平';
+} } else { trendArrow.innerHTML = '&#x2014; 暂无趋势数据';
+}
+/* Alert */
+const alertBar = document.getElementById('alertBar');
+if (trend.alert) { alertBar.classList.add('warn');
+alertBar.style.background = 'rgba(239,68,68,0.1)';
+alertBar.style.borderColor = 'rgba(239,68,68,0.3)';
+document.getElementById('alertIcon').textContent = '!';
+document.getElementById('alertText').textContent = trend.alert;
+} else { alertBar.classList.remove('warn');
+document.getElementById('alertIcon').textContent = '';
+document.getElementById('alertText').textContent = '近 28 天恢复状态稳定';
+}
+/* HRV */
+const hrvCurrent = ds.hrv?.last_night_ms || '--';
+const hrvBaseline = data.baselines?.hrv_baseline_7d || '--';
+const hrvPct = derived.hrv_pct_change;
+document.getElementById('hrvCurrent').textContent = `${hrvCurrent} ms`;
+document.getElementById('hrvBaseline').textContent = `${hrvBaseline} ms`;
+const hrvChange = document.getElementById('hrvChange');
+if (typeof hrvPct === 'number') { hrvChange.textContent = `${hrvPct > 0 ? '+' : ''}${hrvPct.toFixed(1)}%`;
+hrvChange.className = 'comp-value ' + (hrvPct > 0 ? 'better' : hrvPct < -5 ? 'worse' : '');
+} else { hrvChange.textContent = '--';
+} document.getElementById('hrvZone').textContent = (ds.hrv?.zone || '--').replace(/_/g, ' ');
+document.getElementById('hrvBar').style.width = `${Math.min(100, ((ds.hrv?.score || 0) / 100) * 100)}%`;
+document.getElementById('hrvBar').style.background = getZoneColor(ds.hrv?.zone);
+/* RHR */
+const rhrCurrent = ds.rhr?.current_bpm || '--';
+const rhrBaseline = data.baselines?.rhr_baseline_28d || '--';
+const rhrDev = derived.rhr_deviation_bpm;
+document.getElementById('rhrCurrent').textContent = `${rhrCurrent} bpm`;
+document.getElementById('rhrBaseline').textContent = `${rhrBaseline} bpm`;
+const rhrDevEl = document.getElementById('rhrDev');
+if (typeof rhrDev === 'number') { rhrDevEl.textContent = `${rhrDev > 0 ? '+' : ''}${rhrDev} bpm`;
+rhrDevEl.className = 'comp-value ' + (rhrDev < 0 ? 'better' : rhrDev > 3 ? 'worse' : '');
+} else { rhrDevEl.textContent = '--';
+} document.getElementById('rhrZone').textContent = (ds.rhr?.zone || '--').replace(/_/g, ' ');
+document.getElementById('rhrBar').style.width = `${Math.min(100, ((ds.rhr?.score || 0) / 100) * 100)}%`;
+document.getElementById('rhrBar').style.background = getZoneColor(ds.rhr?.zone);
+/* Sleep */
+const sleepHours = derived.sleep_total_hours || (ds.sleep?.total_seconds ? ds.sleep.total_seconds / 3600 : 0);
+const sleepBaseline = data.baselines?.sleep_baseline_7d?.total_hours || '--';
+const deepPct = derived.sleep_deep_pct || (ds.sleep?.deep_pct || 0);
+document.getElementById('sleepTotal').textContent = `${typeof sleepHours === 'number' ? sleepHours.toFixed(1) : '--'} h`;
+document.getElementById('sleepBaseline').textContent = `${typeof sleepBaseline === 'number' ? sleepBaseline.toFixed(1) : '--'} h`;
+document.getElementById('deepPct').textContent = `${deepPct ? deepPct.toFixed(0) : '--'}%`;
+document.getElementById('sleepZone').textContent = (ds.sleep?.zone || '--').replace(/_/g, ' ');
+document.getElementById('sleepBar').style.width = `${Math.min(100, ((ds.sleep?.score || 0) / 100) * 100)}%`;
+document.getElementById('sleepBar').style.background = getZoneColor(ds.sleep?.zone);
+/* Stress */
+const stressLevel = ds.stress?.stress_level || derived.stress_level || '--';
+const stressScore = ds.stress?.score || derived.stress_score || '--';
+document.getElementById('stressLevel').textContent = `${stressLevel} /100`;
+document.getElementById('stressScore').textContent = stressScore;
+document.getElementById('stressZone').textContent = (ds.stress?.zone || '--').replace(/_/g, ' ');
+if (typeof stressLevel === 'number') { document.getElementById('stressBar').style.width = `${stressLevel}%`;
+document.getElementById('stressBar').style.background = stressLevel < 30 ? 'var(--excellent)' : stressLevel < 60 ? 'var(--caution)' : 'var(--critical)';
+}
+/* Trend bar chart */
+renderBarChart('trendBars', scores, trend.threshold || 60);
+/* Readiness bar chart (real readiness scores, ascending oldest->newest) */
+const readyRaw = (data.history?.readiness_28d || []).map(r => r.score);
+const readyScores = readyRaw.slice().reverse().slice(-28);
+renderBarChart('readyBars', readyScores, 80);
+/* Pattern chips */
+document.getElementById('chipsRow').innerHTML = patterns.map(p => { const cls = p.match ? 'chip ok' : 'chip';
+const icon = p.match ? '[OK]' : '[!]';
+return `<div class="${cls}">${icon} ${p.label}</div>`;
+}).join('');
+/* Raw data */
+document.getElementById('rawPre').textContent = JSON.stringify(data, null, 2);
+/* Show */
+document.getElementById('loading').classList.add('hidden');
+document.getElementById('app').classList.remove('hidden');
+}
+function toggleRaw() { rawVisible = !rawVisible;
+const content = document.getElementById('rawContent');
+const btn = document.getElementById('rawToggle');
+if (rawVisible) { content.classList.add('show');
+content.style.display = 'block';
+btn.innerHTML = '&#x2191; 收起原始数据';
+} else { content.classList.remove('show');
+content.style.display = 'none';
+btn.innerHTML = '收起原始数据';
+}
+}
+function getDataUrl() { const params = new URLSearchParams(window.location.search);
+const date = params.get('date');
+if (date) return `../kpi_${date}.json`;
+return '../kpi_today.json';
+}
+const FALLBACK = {"date": "2026-07-16", "generated_at": "2026-07-16 00:00:00", "engine_version": "2.0", "design_doc": "docs/design-morning-advisor.md", "references_count": 24, "data_source": "local_db ()", "latest_db_date": "2026-07-16", "raw_inputs": {"hrv": {"last_night": 73, "weekly_avg": 68, "status": "BALANCED"}, "rhr": {"current_bpm": 43}, "sleep": {"total_seconds": 27900, "deep_seconds": 4980, "rem_seconds": 7800, "awake_count": 0, "garmin_sleep_score": 97}, "readiness": {"score": 91, "level": "HIGH"}, "profile": {"vo2max": "", "bmi": null, "device": "Forerunner 955 Solar", "fitness_age": "", "chronological_age": "", "training_status_phrase": "RECOVERY", "acwr_percent": 0, "total_steps": null, "total_distance_m": null, "active_calories": null, "avg_stress": 14, "max_stress": 84, "min_hr": null, "max_hr": null, "body_battery_charged": null, "body_battery_drained": null, "avg_spo2": null}, "race_predictions": {}, "stress_raw": {"avg_stress_level": 14, "max_stress_level": 84}}, "history": {"hrv_14d": [{"date": "2026-07-16", "value": 73}, {"date": "2026-07-14", "value": 52}, {"date": "2026-07-13", "value": 75}, {"date": "2026-07-12", "value": 66}, {"date": "2026-07-11", "value": 80}, {"date": "2026-07-10", "value": 67}, {"date": "2026-07-08", "value": 61}, {"date": "2026-07-06", "value": 59}, {"date": "2026-07-05", "value": 76}, {"date": "2026-07-04", "value": 81}, {"date": "2026-07-03", "value": 69}, {"date": "2026-07-02", "value": 89}, {"date": "2026-07-01", "value": 67}, {"date": "2026-06-29", "value": 64}], "rhr_28d": [{"date": "2026-07-16", "value": 43}, {"date": "2026-07-14", "value": 47}, {"date": "2026-07-13", "value": 43}, {"date": "2026-07-12", "value": 42}, {"date": "2026-07-11", "value": 43}, {"date": "2026-07-10", "value": 43}, {"date": "2026-07-09", "value": 46}, {"date": "2026-07-08", "value": 44}, {"date": "2026-07-07", "value": 45}, {"date": "2026-07-06", "value": 42}, {"date": "2026-07-05", "value": 40}, {"date": "2026-07-04", "value": 39}, {"date": "2026-07-03", "value": 42}, {"date": "2026-07-02", "value": 41}, {"date": "2026-07-01", "value": 43}, {"date": "2026-06-30", "value": 74}, {"date": "2026-06-29", "value": 42}, {"date": "2026-06-28", "value": 71}, {"date": "2026-06-27", "value": 72}, {"date": "2026-06-26", "value": 46}, {"date": "2026-06-25", "value": 47}, {"date": "2026-06-18", "value": 45}, {"date": "2026-06-17", "value": 45}, {"date": "2026-06-16", "value": 42}, {"date": "2026-06-15", "value": 44}, {"date": "2026-06-14", "value": 41}, {"date": "2026-06-12", "value": 43}, {"date": "2026-06-11", "value": 46}], "sleep_28d": [{"date": "2026-07-16", "total_sec": 27900, "deep_sec": 4980}, {"date": "2026-07-14", "total_sec": 20134, "deep_sec": 6480}, {"date": "2026-07-13", "total_sec": 21900, "deep_sec": 6240}, {"date": "2026-07-12", "total_sec": 27720, "deep_sec": 4860}, {"date": "2026-07-11", "total_sec": 27151, "deep_sec": 4440}, {"date": "2026-07-10", "total_sec": 32580, "deep_sec": 4740}, {"date": "2026-07-08", "total_sec": 30780, "deep_sec": 6300}, {"date": "2026-07-06", "total_sec": 31248, "deep_sec": 6480}, {"date": "2026-07-05", "total_sec": 25980, "deep_sec": 7380}, {"date": "2026-07-04", "total_sec": 32880, "deep_sec": 9420}, {"date": "2026-07-03", "total_sec": 25860, "deep_sec": 8820}, {"date": "2026-07-02", "total_sec": 19200, "deep_sec": 5220}, {"date": "2026-07-01", "total_sec": 22380, "deep_sec": 4020}, {"date": "2026-06-29", "total_sec": 15300, "deep_sec": 6540}, {"date": "2026-06-26", "total_sec": 17580, "deep_sec": 7980}], "readiness_28d": [{"date": "2026-07-16", "score": 91, "level": "HIGH"}, {"date": "2026-07-15", "score": 61, "level": "MODERATE"}, {"date": "2026-07-14", "score": 58, "level": "MODERATE"}, {"date": "2026-07-13", "score": 60, "level": "MODERATE"}, {"date": "2026-07-12", "score": 100, "level": "PRIME"}, {"date": "2026-07-11", "score": 100, "level": "PRIME"}, {"date": "2026-07-10", "score": 97, "level": "PRIME"}, {"date": "2026-07-09", "score": 69, "level": "MODERATE"}, {"date": "2026-07-08", "score": 79, "level": "HIGH"}, {"date": "2026-07-07", "score": 75, "level": "HIGH"}, {"date": "2026-07-06", "score": 93, "level": "HIGH"}, {"date": "2026-07-05", "score": 92, "level": "HIGH"}, {"date": "2026-07-04", "score": 92, "level": "HIGH"}, {"date": "2026-07-03", "score": 71, "level": "MODERATE"}, {"date": "2026-07-02", "score": 65, "level": "MODERATE"}, {"date": "2026-07-01", "score": 63, "level": "MODERATE"}, {"date": "2026-06-30", "score": 39, "level": "LOW"}, {"date": "2026-06-29", "score": 44, "level": "LOW"}, {"date": "2026-06-28", "score": 69, "level": "MODERATE"}, {"date": "2026-06-27", "score": 50, "level": "MODERATE"}, {"date": "2026-06-26", "score": 44, "level": "LOW"}, {"date": "2026-06-25", "score": 75, "level": "HIGH"}, {"date": "2026-06-24", "score": 94, "level": "HIGH"}, {"date": "2026-06-23", "score": 94, "level": "HIGH"}, {"date": "2026-06-22", "score": 94, "level": "HIGH"}, {"date": "2026-06-21", "score": 94, "level": "HIGH"}, {"date": "2026-06-20", "score": 94, "level": "HIGH"}, {"date": "2026-06-19", "score": 77, "level": "HIGH"}, {"date": "2026-06-18", "score": 74, "level": "MODERATE"}, {"date": "2026-06-17", "score": 75, "level": "HIGH"}]}, "baselines": {"hrv_baseline_7d": 70, "rhr_baseline_28d": 46, "sleep_baseline_7d": {"total_seconds": 26881, "total_hours": 7.47, "deep_pct_avg": 21.1}, "formulas": {"hrv_baseline": "rolling_mean(last_7_nights_HRV), Plews 2014 [R7]", "rhr_baseline": "rolling_mean(last_28_days_RHR), Bosquet 2003 [R12]", "sleep_baseline": "rolling_mean(last_7_days_total_sleep), Ohayon 2004 [R16]"}}, "dimension_scores": {"hrv": {"last_night_ms": 73, "weekly_avg_ms": 70, "fallback_used": false, "ln_last_night": 4.2905, "ln_baseline": 4.2485, "pct_change": 0.009877, "pct_change_pct": 0.99, "anchors": [{"pct_change": 0.1, "score": 70, "label": "spike"}, {"pct_change": 0.05, "score": 85, "label": "green_high"}, {"pct_change": 0.0, "score": 75, "label": "green_normal_mid"}, {"pct_change": -0.05, "score": 60, "label": "green_low_yellow_high"}, {"pct_change": -0.08, "score": 40, "label": "yellow_low_red_high"}, {"pct_change": -0.15, "score": 10, "label": "red_deep"}, {"pct_change": -0.2, "score": 0, "label": "severe"}], "score": 0, "zone": "SEVERE"}, "rhr": {"current_bpm": 43, "baseline_bpm": 46, "deviation": -3, "deviation_bpm": "-3 bpm", "anchors": [{"deviation_bpm": -3, "score": 95, "label": "very_low"}, {"deviation_bpm": 0, "score": 75, "label": "baseline"}, {"deviation_bpm": 3, "score": 55, "label": "mild_fatigue"}, {"deviation_bpm": 6, "score": 30, "label": "fatigue"}, {"deviation_bpm": 10, "score": 0, "label": "severe"}], "score": 95, "zone": "very_low"}, "sleep": {"total_seconds": 27900, "deep_seconds": 4980, "rem_seconds": 7800, "awake_count": 0, "garmin_score_used": true, "score": 97, "sub_scores": {}}, "readiness": {"original_score": 91, "score": 91, "zone": "GREEN"}, "stress": {"stress_level": 14, "anchors": [{"stress_level": 0, "score": 95, "label": "very_low"}, {"stress_level": 25, "score": 85, "label": "low"}, {"stress_level": 50, "score": 60, "label": "moderate"}, {"stress_level": 75, "score": 25, "label": "high"}, {"stress_level": 100, "score": 0, "label": "severe"}], "score": 89, "zone": "low"}}, "composite": {"recovery_score": 66, "weights": {"hrv": 0.3, "sleep": 0.25, "rhr": 0.2, "readiness": 0.15, "stress": 0.1}, "grade": "C", "label": "需要注意", "zone": "CAUTION", "calculation_steps": ["HRV: 0 x 0.30 = 0.00", "Sleep: 97 x 0.25 = 24.25", "RHR: 95 x 0.20 = 19.00", "Readiness: 91 x 0.15 = 13.65", "Stress: 89 x 0.10 = 8.90", "Total: 65.80 -> 66"], "formula": "recovery = HRV x 0.30 + Sleep x 0.25 + RHR x 0.20 + Readiness x 0.15 + Stress x 0.10", "reference": "§4.6, [R2] Buchheit 2014, [R16] Ohayon 2004, [R12] Bosquet 2003, [R21] Garmin"}, "multi_dimension_validation": {"num_patterns_checked": 5, "patterns_checked": [{"id": "IDEAL_RECOVERY", "label": "理想恢复", "condition_desc": "HRV↑↑ RHR↓→ 睡眠优", "ref": "[R2] Buchheit 2014", "match": true}, {"id": "SYMPATHETIC_FATIGUE", "label": "交感疲劳", "condition_desc": "HRV↓↓ RHR↑↑ 睡眠差", "ref": "[R10] Plews 2013", "match": false}, {"id": "PARASYMPATHETIC_REBOUND", "label": "副交感反弹", "condition_desc": "HRV↑↑↑ RHR↓↓ 睡眠中", "ref": "[R9] Recovery Tower Spike", "match": false}, {"id": "SLEEP_DEBT", "label": "睡眠债务疲劳", "condition_desc": "HRV↓ RHR→ 睡眠差·短", "ref": "[R16] Ohayon 2004", "match": false}, {"id": "HIGH_LOAD_ADAPTATION", "label": "高负荷适应", "condition_desc": "HRV↓ RHR↑ 睡眠中", "ref": "[R22] Chalencon 2012", "match": false}], "num_matched": 1, "matched_patterns": [{"id": "IDEAL_RECOVERY", "label": "理想恢复", "condition_desc": "HRV↑↑ RHR↓→ 睡眠优", "ref": "[R2] Buchheit 2014", "match": true}]}, "trend": {"low_streak": 2, "window_checked": 28, "threshold": 60, "alert": null, "recent_scores_in_window": [77, 94, 94, 94, 94, 94, 75, 44, 50, 69, 44, 39, 63, 65, 71, 92, 92, 93, 75, 79, 69, 97, 100, 100, 60, 58, 61, 91]}, "derived_metrics_summary": {"hrv_pct_change": 0.99, "hrv_ln_change": 0.009877, "rhr_deviation_bpm": -3, "sleep_total_hours": 7.75, "sleep_deep_pct": 17.85, "sleep_rem_pct": 0, "stress_level": 14, "stress_score": 89, "stress_zone": "low", "training_load": null, "acwr_percent": 0, "readiness_score_original": 91}};
+async function loadData() { const loading = document.getElementById('loading');
+const app = document.getElementById('app');
+loading.classList.remove('hidden');
+app.classList.add('hidden');
+loading.innerHTML = '<div class="spinner"></div><p>加载趋势数据...</p>';
+try { const resp = await fetch(getDataUrl(), { cache: 'no-store' });
+if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+const data = await resp.json();
+render(data);
+} catch (err) { console.warn('Fetch failed, using fallback:', err.message);
+render(FALLBACK);
+}
+} document.addEventListener('DOMContentLoaded', loadData);
+</script></body></html>
