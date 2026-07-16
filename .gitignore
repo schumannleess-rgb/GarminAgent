@@ -70,3 +70,13 @@ docs/*.json
 !tests/fixtures/
 !tests/fixtures/**
 .worktrees/
+
+# 本地工具/编辑器配置（个人）
+.claude/
+
+# 临时草稿文件（不入库）
+*.new
+
+# 第三方依赖库源码（不应当提交）
+login/python-garminconnect-master/
+login/python-garminconnect-master.zip
