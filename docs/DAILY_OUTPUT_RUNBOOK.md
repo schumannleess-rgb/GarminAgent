@@ -44,7 +44,8 @@ python scripts/gen_trend_data_view.py
 python scripts/variants/pin_paper/build.py          # → output/html/recovery_pin_paper.html
 python scripts/variants/zine/build.py               # → output/html/recovery_zine.html
 python scripts/variants/recovery_deck/build.py      # → output/html/recovery_swiss.html (Swiss deck, 依赖 scripts/ppt_common.py)
-#    （morning_card.html 已于 2026-07-16 归档至 output/html/archive/，不再纳入每日流程）
+#    变体注册表（目录/产物/data-style/命令/状态）见 scripts/variants/MANIFEST.md
+#    （morning_card.html 与源变体目录 scripts/variants/morning-card/ 已于 2026-07-16 归档至 output/html/archive/ 与 scripts/variants/archive/，不再纳入每日流程）
 ```
 
 ### 为什么第 1 步必须带 `GARMIN_OUTPUT_DIR`

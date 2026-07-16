@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-build.py — 将 kpi_today.json 注入 deep_diagnosis_pin_and_paper.html 的 STATIC_DATA。
+build.py — 将 kpi_today.json 注入 recovery_pin_paper.html 的 STATIC_DATA。
 
-对齐标准版 deep_diagnosis_latest.html 的加载约定：
+对齐标准版 recovery_standard.html 的加载约定：
   · file://（Hermes / 离线 / 无服务）→ 以内嵌 STATIC_DATA 静态快照为本源数据直接渲染；
   · http(s)://（实时）→ fetch kpi_today.json，失败一律走固定失败页，绝不回退内嵌旧数据。
 
 STATIC_DATA 注入的是「完整 kpi_today.json」；HTML 内的 adaptKpi() 负责把 28d 序列切成图表所需的 7d。
 
-产物写入 output/html/deep_diagnosis_pin_and_paper.html（与其他交付物同处 served）。
+产物写入 output/html/recovery_pin_paper.html（与其他交付物同处 served）。
 
 用法:
-    python scripts/variants/pin-paper/build.py
+    python scripts/variants/pin_paper/build.py
 """
 
 import json
@@ -20,12 +20,12 @@ from datetime import datetime
 from pathlib import Path
 
 # ─── 路径配置 ───
-# __file__ = <GarminAgent>/scripts/variants/pin-paper/build.py
-# SCRIPT_DIR = <GarminAgent>/scripts/variants/pin-paper
-SCRIPT_DIR = Path(__file__).resolve().parent          # scripts/variants/pin-paper
-PROJECT_ROOT = SCRIPT_DIR.parents[2]                  # scripts/variants/pin-paper -> variants -> scripts -> GarminAgent
+# __file__ = <GarminAgent>/scripts/variants/pin_paper/build.py
+# SCRIPT_DIR = <GarminAgent>/scripts/variants/pin_paper
+SCRIPT_DIR = Path(__file__).resolve().parent          # scripts/variants/pin_paper
+PROJECT_ROOT = SCRIPT_DIR.parents[2]                  # scripts/variants/pin_paper -> variants -> scripts -> GarminAgent
 SRC_HTML = SCRIPT_DIR / "src.html"
-OUT_HTML = PROJECT_ROOT / "output" / "html" / "deep_diagnosis_pin_and_paper.html"
+OUT_HTML = PROJECT_ROOT / "output" / "html" / "recovery_pin_paper.html"
 KPI_PATH = PROJECT_ROOT / "output" / "kpi_today.json"
 
 
@@ -70,13 +70,6 @@ def main() -> int:
     new_static_block = f"const STATIC_DATA = {new_static_js};"
     new_html = html[:match.start()] + new_static_block + html[match.end():]
 
-    # ─── 备份旧输出（如果存在）───
-    if OUT_HTML.exists():
-        backup_path = OUT_HTML.with_suffix(".html.bak")
-        with open(backup_path, "w", encoding="utf-8") as f:
-            f.write(OUT_HTML.read_text(encoding="utf-8"))
-        print(f"\n[2] Backed up old output to: {backup_path.name}")
-
     # ─── 写入输出 ───
     OUT_HTML.parent.mkdir(parents=True, exist_ok=True)
     with open(OUT_HTML, "w", encoding="utf-8") as f:
@@ -98,7 +91,7 @@ def main() -> int:
           f"rhr_28d={len(kpi['history'].get('rhr_28d', []))} "
           f"hrv_14d={len(kpi['history'].get('hrv_14d', []))})")
 
-    print("\nDone! Open output/html/deep_diagnosis_pin_and_paper.html to verify.")
+    print("\nDone! Open output/html/recovery_pin_paper.html to verify.")
     return 0
 
 

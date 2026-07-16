@@ -766,7 +766,7 @@ def build_html(m, theme_css, theme_name):
 {theme_css}
 </style>
 </head>
-<body>
+<body data-style="recovery-deck">
 <div class="deck" id="deck">
 {''.join(slides)}
 </div>
