@@ -13,19 +13,16 @@ Token lifecycle:
     - As long as the app runs at least once within 30 days, tokens stay valid
 """
 
+import contextlib
 import os
 import sys
 from pathlib import Path
 
 # Add vendor path for garminconnect library
-_VENDOR_DIR = Path(__file__).resolve().parent.parent / "python-garminconnect-master"
+# NOTE: Path differs from outer (login/login/) → parent vs parent.parent
+_VENDOR_DIR = Path(__file__).resolve().parent / "python-garminconnect-master"
 if _VENDOR_DIR.is_dir():
     sys.path.insert(0, str(_VENDOR_DIR))
-# Fallback: try sibling directory (login/python-garminconnect-master/)
-else:
-    _alt = Path(__file__).resolve().parent / "python-garminconnect-master"
-    if _alt.is_dir():
-        sys.path.insert(0, str(_alt))
 
 from garminconnect import (  # noqa: E402
     Garmin,
@@ -64,13 +61,13 @@ def garmin_login(
         GarminConnectConnectionError: Network issues.
         GarminConnectTooManyRequestsError: Rate limited.
     """
-    # Step 1: Try token restore
+    # Step 1: Try token restore (no password needed)
     try:
         garmin = Garmin(is_cn=is_cn)
-        garmin.login(tokenstore)
+        _restore_from_tokenstore(garmin, tokenstore)
         return garmin
     except (GarminConnectAuthenticationError, GarminConnectConnectionError):
-        pass  # Tokens invalid, fall through to credential login
+        pass  # Tokens invalid/expired, fall through to credential login
 
     # Step 2: Credential login
     if not email or not password:
@@ -80,8 +77,40 @@ def garmin_login(
         )
 
     garmin = Garmin(email=email, password=password, is_cn=is_cn)
-    garmin.login(tokenstore)
+    _login_with_credentials(garmin, email, password)
+    _persist_tokenstore(garmin, tokenstore)
     return garmin
+
+
+def _restore_from_tokenstore(garmin: "Garmin", tokenstore: str) -> None:
+    """Restore a session from saved tokens, no password needed.
+
+    Raises on missing/invalid tokens so the caller can fall back to credentials.
+    """
+    garmin.login(tokenstore)
+
+
+def _login_with_credentials(garmin: "Garmin", email: str, password: str) -> None:
+    """Perform credential login.
+
+    Credentials are supplied via the ``Garmin`` constructor; the vendored
+    ``login()`` takes no email/password arguments of its own.
+    """
+    garmin.login()
+
+
+def _persist_tokenstore(garmin: "Garmin", tokenstore: str) -> None:
+    """Best-effort token persistence after a successful login.
+
+    The vendored ``login()`` only dumps when a tokenstore path is supplied, so
+    we persist explicitly via the internal client after credential login.
+    """
+    if not tokenstore:
+        return
+    client = getattr(garmin, "client", None)
+    if client is not None:
+        with contextlib.suppress(Exception):
+            client.dump(str(Path(tokenstore).expanduser().resolve()))
 
 
 def garmin_login_interactive(
