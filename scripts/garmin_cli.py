@@ -33,11 +33,11 @@ if sys.platform == "win32":
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Load .env
-env_file = PROJECT_ROOT / ".env"
-if env_file.exists():
-    from dotenv import load_dotenv
-    load_dotenv(env_file)
+# Load .env (root + .local, matching project convention in main.py/config.py/sync_data.py)
+from dotenv import load_dotenv
+for env_file in (PROJECT_ROOT / ".env", PROJECT_ROOT / ".local" / ".env"):
+    if env_file.exists():
+        load_dotenv(env_file)
 
 from garmin_agent.client import GarminClient
 
@@ -90,7 +90,10 @@ def main():
         return 1
 
     cmd = sys.argv[1]
-    client = GarminClient()
+    client = GarminClient(
+        email=os.getenv("GARMIN_EMAIL"),
+        password=os.getenv("GARMIN_PASSWORD"),
+    )
 
     if not client.connect():
         print(json.dumps({"error": "Garmin连接失败"}, ensure_ascii=False))
